@@ -14,7 +14,7 @@
 If you don't have `firebase` and `nvm`, you can install them globally.
 
 ```bash
-yarn global add firebase nvm
+yarn global add firebase-tools nvm
 ```
 
 Clone this repo and install node packages.
@@ -25,7 +25,7 @@ cd id-2e-brief2
 yarn
 ```
 
-Initialize firebase, choose Firestore and Functions.
+Initialize firebase, choose Firestore and Functions. During the initialization, don't overwrite any files.
 
 ```bash
 cd firebase
