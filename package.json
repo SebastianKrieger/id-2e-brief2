@@ -6,5 +6,8 @@
   "prettier": {
     "semi": false,
     "arrowParens": "avoid"
+  },
+  "devDependencies": {
+    "prettier": "2.0.5"
   }
 }
