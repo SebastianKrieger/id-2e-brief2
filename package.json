@@ -1,0 +1,10 @@
+{
+  "name": "id-2e-brief2",
+  "scripts": {
+    "lint": "prettier --write **/*.js"
+  },
+  "prettier": {
+    "semi": false,
+    "arrowParens": "avoid"
+  }
+}
