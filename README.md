@@ -17,6 +17,12 @@ If you don't have `firebase` and `nvm`, you can install them globally.
 yarn global add firebase-tools nvm
 ```
 
+If this is first time using `firebase` from CLI, you need to login.
+
+```bash
+firebase login
+```
+
 Clone this repo and install node packages.
 
 ```bash
@@ -40,7 +46,7 @@ nvm use 10
 yarn
 ```
 
-Set `Slack Signing Secret` from your test Slack space to a Function env variable.
+Set `Slack Signing Secret` from your test Slack app to a Function env variable.
 
 ```bash
 firebase functions:config:set slack.secret="xxxxxxxxxxxxxxxxx"
@@ -49,7 +55,7 @@ firebase functions:config:set slack.secret="xxxxxxxxxxxxxxxxx"
 Deploy Functions.
 
 ```bash
-firebase deploy only functions
+firebase deploy --only functions
 ```
 Create a slash command in your Slack app with at least the following settings.
 
