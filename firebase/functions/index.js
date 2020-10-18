@@ -21,7 +21,7 @@ const verifyWebhook = req => {
     signingSecret: functions.config().slack.secret,
     requestSignature: req.headers["x-slack-signature"],
     requestTimestamp: req.headers["x-slack-request-timestamp"],
-    body: req.rawBody
+    body: req.rawBody,
   }
 
   if (!verifyRequestSignature(signature)) {
@@ -40,10 +40,7 @@ const verifyMethod = (req, method) => {
 }
 
 const getUser = async user_id => {
-  const doc = await db
-    .collection("users")
-    .doc(user_id)
-    .get()
+  const doc = await db.collection("users").doc(user_id).get()
   return doc.exists ? doc.data() : null
 }
 
@@ -56,8 +53,8 @@ const askChallenge = async (url, date) => {
         text: {
           type: "plain_text",
           text: "What was your challenge this week?",
-          emoji: true
-        }
+          emoji: true,
+        },
       },
       {
         type: "actions",
@@ -68,31 +65,31 @@ const askChallenge = async (url, date) => {
             text: {
               type: "plain_text",
               emoji: true,
-              text: "Socializing"
+              text: "Socializing",
             },
-            value: "a"
+            value: "a",
           },
           {
             type: "button",
             text: {
               type: "plain_text",
               emoji: true,
-              text: "Working from remote"
+              text: "Working from remote",
             },
-            value: "b"
+            value: "b",
           },
           {
             type: "button",
             text: {
               type: "plain_text",
               emoji: true,
-              text: "Challenges too difficult"
+              text: "Challenges too difficult",
             },
-            value: "c"
-          }
-        ]
-      }
-    ]
+            value: "c",
+          },
+        ],
+      },
+    ],
   }
   if (typeof url === "string") {
     await axios.post(url, json)
@@ -110,8 +107,8 @@ const askMood = async (url, date, init = false) => {
         text: {
           type: "plain_text",
           text: "How is your mood right now?",
-          emoji: true
-        }
+          emoji: true,
+        },
       },
       {
         type: "actions",
@@ -122,59 +119,59 @@ const askMood = async (url, date, init = false) => {
             text: {
               type: "plain_text",
               emoji: true,
-              text: ":star-struck:"
+              text: ":star-struck:",
             },
-            value: "5"
+            value: "5",
           },
           {
             type: "button",
             text: {
               type: "plain_text",
               emoji: true,
-              text: ":smile:"
+              text: ":smile:",
             },
-            value: "4"
+            value: "4",
           },
           {
             type: "button",
             text: {
               type: "plain_text",
               emoji: true,
-              text: ":slightly_smiling_face:"
+              text: ":slightly_smiling_face:",
             },
-            value: "3"
+            value: "3",
           },
           {
             type: "button",
             text: {
               type: "plain_text",
               emoji: true,
-              text: ":neutral_face:"
+              text: ":neutral_face:",
             },
-            value: "2"
+            value: "2",
           },
           {
             type: "button",
             text: {
               type: "plain_text",
               emoji: true,
-              text: ":white_frowning_face:"
+              text: ":white_frowning_face:",
             },
-            value: "1"
-          }
-        ]
-      }
-    ]
+            value: "1",
+          },
+        ],
+      },
+    ],
   }
 
   if (init) {
-    json.block.unshift({
+    json.blocks.unshift({
       type: "section",
       text: {
         type: "plain_text",
         text: "Yeah! I started mood tracking! Here's the first one:",
-        emoji: true
-      }
+        emoji: true,
+      },
     })
   }
 
@@ -187,7 +184,7 @@ const askMood = async (url, date, init = false) => {
 
 const thanks = async url => {
   await axios.post(url, {
-    text: `Thank you, I saved it!`
+    text: `Thank you, I saved it!`,
   })
 }
 exports.start_mood_tracker = functions.https.onRequest(async (req, res) => {
@@ -199,17 +196,14 @@ exports.start_mood_tracker = functions.https.onRequest(async (req, res) => {
     if (user !== null && user.track === true) {
       res.send(`You have already started the mood tracker.`)
     } else {
-      await db
-        .collection("users")
-        .doc(req.body.user_id)
-        .set({
-          last_mode: 0,
-          last_challenge: 0,
-          user_id: req.body.user_id,
-          user_name: req.body.user_name,
-          date: Date.now(),
-          track: true
-        })
+      await db.collection("users").doc(req.body.user_id).set({
+        last_mode: 0,
+        last_challenge: 0,
+        user_id: req.body.user_id,
+        user_name: req.body.user_name,
+        date: Date.now(),
+        track: true,
+      })
       await askMood(res, undefined, true)
     }
 
@@ -331,26 +325,20 @@ exports.interact = functions.https.onRequest(async (req, res) => {
         date,
         user_id,
         value,
-        text
+        text,
       })
-      await db
-        .collection("users")
-        .doc(user_id)
-        .update({
-          last_challenge: date
-        })
+      await db.collection("users").doc(user_id).update({
+        last_challenge: date,
+      })
       await thanks(payload.response_url)
     } else if (action_type === "mood") {
-      await db
-        .collection("users")
-        .doc(user_id)
-        .update({
-          last_mood: date
-        })
+      await db.collection("users").doc(user_id).update({
+        last_mood: date,
+      })
       await db.collection("moods").add({
         date,
         user_id,
-        value: +value
+        value: +value,
       })
       const user = await getUser(user_id)
       if (user.last_challenge < Date.now() - 1000 * 60 * 60 * 5) {
