@@ -71,6 +71,8 @@ Create slash commands in your Slack app with at least the following settings.
 
 The rest is whatever.
 
+Enable interactivity on your slack app with `/interact` function endpoint.
+
 Finally reinstall the Slack app to your Slack space.
 
 ---
