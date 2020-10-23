@@ -47,6 +47,14 @@ const moodEmoji = {
   5: ":star-struck:",
 }
 
+const solutions = {
+  a: "collaboration",
+  b: "loneliness",
+  c: "collaboration-tools",
+  d: "distractions",
+  e: "unplugging",
+}
+
 const getUser = async user_id => {
   const doc = await db.collection("users").doc(user_id).get()
   return doc.exists ? doc.data() : null
@@ -73,7 +81,7 @@ const askChallenge = async (url, date) => {
             text: {
               type: "plain_text",
               emoji: true,
-              text: "Socializing",
+              text: "Collaboration",
             },
             value: "a",
           },
@@ -82,7 +90,7 @@ const askChallenge = async (url, date) => {
             text: {
               type: "plain_text",
               emoji: true,
-              text: "Working from remote",
+              text: "Loneliness",
             },
             value: "b",
           },
@@ -91,9 +99,27 @@ const askChallenge = async (url, date) => {
             text: {
               type: "plain_text",
               emoji: true,
-              text: "Challenges too difficult",
+              text: "Collaboration Tools",
             },
             value: "c",
+          },
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              emoji: true,
+              text: "Distractions",
+            },
+            value: "d",
+          },
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              emoji: true,
+              text: "Unplugging",
+            },
+            value: "e",
           },
         ],
       },
@@ -190,11 +216,17 @@ const askMood = async (url, date, init = false) => {
   }
 }
 
-const thanks = async url => {
+const thanks = async (url, solution) => {
+  let text = [`Thank you, I saved it!`]
+  if (solutions[solution] !== undefined) {
+    text.push(`Here's a prescription for your challenge!`)
+    text.push(`https://id-2e.com/${solutions[solution]}/`)
+  }
   await axios.post(url, {
-    text: `Thank you, I saved it!`,
+    text: text.join("\n"),
   })
 }
+
 exports.start_mood_tracker = functions.https.onRequest(async (req, res) => {
   try {
     verifyMethod(req, "POST")
@@ -338,7 +370,7 @@ exports.interact = functions.https.onRequest(async (req, res) => {
       await db.collection("users").doc(user_id).update({
         last_challenge: date,
       })
-      await thanks(payload.response_url)
+      await thanks(payload.response_url, value)
     } else if (action_type === "mood") {
       await db.collection("users").doc(user_id).update({
         last_mood: date,
