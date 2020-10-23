@@ -39,6 +39,22 @@ const verifyMethod = (req, method) => {
   }
 }
 
+const moodEmoji = {
+  1: ":white_frowning_face:",
+  2: ":neutral_face:",
+  3: ":slightly_smiling_face:",
+  4: ":smile:",
+  5: ":star-struck:",
+}
+
+const solutions = {
+  a: "collaboration",
+  b: "loneliness",
+  c: "collaboration-tools",
+  d: "distractions",
+  e: "unplugging",
+}
+
 const getUser = async user_id => {
   const doc = await db.collection("users").doc(user_id).get()
   return doc.exists ? doc.data() : null
@@ -65,7 +81,7 @@ const askChallenge = async (url, date) => {
             text: {
               type: "plain_text",
               emoji: true,
-              text: "Socializing",
+              text: "Collaboration",
             },
             value: "a",
           },
@@ -74,7 +90,7 @@ const askChallenge = async (url, date) => {
             text: {
               type: "plain_text",
               emoji: true,
-              text: "Working from remote",
+              text: "Loneliness",
             },
             value: "b",
           },
@@ -83,9 +99,27 @@ const askChallenge = async (url, date) => {
             text: {
               type: "plain_text",
               emoji: true,
-              text: "Challenges too difficult",
+              text: "Collaboration Tools",
             },
             value: "c",
+          },
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              emoji: true,
+              text: "Distractions",
+            },
+            value: "d",
+          },
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              emoji: true,
+              text: "Unplugging",
+            },
+            value: "e",
           },
         ],
       },
@@ -182,11 +216,17 @@ const askMood = async (url, date, init = false) => {
   }
 }
 
-const thanks = async url => {
+const thanks = async (url, solution) => {
+  let text = [`Thank you, I saved it!`]
+  if (solutions[solution] !== undefined) {
+    text.push(`Here's a prescription for your challenge!`)
+    text.push(`https://id-2e.com/${solutions[solution]}/`)
+  }
   await axios.post(url, {
-    text: `Thank you, I saved it!`,
+    text: text.join("\n"),
   })
 }
+
 exports.start_mood_tracker = functions.https.onRequest(async (req, res) => {
   try {
     verifyMethod(req, "POST")
@@ -330,7 +370,7 @@ exports.interact = functions.https.onRequest(async (req, res) => {
       await db.collection("users").doc(user_id).update({
         last_challenge: date,
       })
-      await thanks(payload.response_url)
+      await thanks(payload.response_url, value)
     } else if (action_type === "mood") {
       await db.collection("users").doc(user_id).update({
         last_mood: date,
@@ -363,9 +403,26 @@ exports.show_mood = functions.https.onRequest(async (req, res) => {
     verifyMethod(req, "POST")
     verifyWebhook(req)
 
-    res.send(
-      `Here's your statistics of the last 2 months: ...under construction`
-    )
+    const user_id = req.body.user_id
+
+    const userData = await db
+      .collection("moods")
+      .where("user_id", "==", user_id)
+      .get()
+
+    if (userData.docs.length < 1) {
+      throw new Error("no avaible moods for user")
+    }
+
+    let resMessage = "Your last moods: \n"
+
+    for (const mood of userData.docs) {
+      resMessage += `${new Date(mood.data().date).toLocaleDateString()} => ${
+        moodEmoji[mood.data().value]
+      } \n`
+    }
+
+    res.send(resMessage)
 
     return Promise.resolve()
   } catch (err) {
