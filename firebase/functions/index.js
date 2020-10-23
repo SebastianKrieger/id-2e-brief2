@@ -39,6 +39,14 @@ const verifyMethod = (req, method) => {
   }
 }
 
+const moodEmoji = {
+  1: ":white_frowning_face:",
+  2: ":neutral_face:",
+  3: ":slightly_smiling_face:",
+  4: ":smile:",
+  5: ":star-struck:",
+}
+
 const getUser = async user_id => {
   const doc = await db.collection("users").doc(user_id).get()
   return doc.exists ? doc.data() : null
@@ -363,9 +371,26 @@ exports.show_mood = functions.https.onRequest(async (req, res) => {
     verifyMethod(req, "POST")
     verifyWebhook(req)
 
-    res.send(
-      `Here's your statistics of the last 2 months: ...under construction`
-    )
+    const user_id = req.body.user_id
+
+    const userData = await db
+      .collection("moods")
+      .where("user_id", "==", user_id)
+      .get()
+
+    if (userData.docs.length < 1) {
+      throw new Error("no avaible moods for user")
+    }
+
+    let resMessage = "Your last moods: \n"
+
+    for (const mood of userData.docs) {
+      resMessage += `${new Date(mood.data().date).toLocaleDateString()} => ${
+        moodEmoji[mood.data().value]
+      } \n`
+    }
+
+    res.send(resMessage)
 
     return Promise.resolve()
   } catch (err) {
