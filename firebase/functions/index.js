@@ -7,8 +7,9 @@ const db = admin.firestore()
 const { verifyRequestSignature } = require("@slack/events-api")
 
 const axios = require("axios")
-
+const qs = require("qs")
 const moment = require("moment")
+
 /**
  * Verify that the webhook request came from Slack.
  *
@@ -63,67 +64,7 @@ const getUser = async user_id => {
 const askChallenge = async (url, date) => {
   const block_id = date === undefined ? "challenge" : `challenge-${date}`
   const json = {
-    blocks: [
-      {
-        type: "header",
-        text: {
-          type: "plain_text",
-          text: "What was your challenge this week?",
-          emoji: true,
-        },
-      },
-      {
-        type: "actions",
-        block_id,
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              emoji: true,
-              text: "Collaboration",
-            },
-            value: "a",
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              emoji: true,
-              text: "Loneliness",
-            },
-            value: "b",
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              emoji: true,
-              text: "Collaboration Tools",
-            },
-            value: "c",
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              emoji: true,
-              text: "Distractions",
-            },
-            value: "d",
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              emoji: true,
-              text: "Unplugging",
-            },
-            value: "e",
-          },
-        ],
-      },
-    ],
+    blocks: makeChallengeBlocks(block_id),
   }
   if (typeof url === "string") {
     await axios.post(url, json)
@@ -131,71 +72,133 @@ const askChallenge = async (url, date) => {
     url.json(json)
   }
 }
-
-const askMood = async (url, date, init = false) => {
-  const block_id = date === undefined ? "mood" : `mood-${date}`
-  let json = {
-    blocks: [
+const makeMoodBlocks = block_id => [
+  {
+    type: "header",
+    text: {
+      type: "plain_text",
+      text: "How is your mood right now?",
+      emoji: true,
+    },
+  },
+  {
+    type: "actions",
+    block_id,
+    elements: [
       {
-        type: "header",
+        type: "button",
         text: {
           type: "plain_text",
-          text: "How is your mood right now?",
           emoji: true,
+          text: moodEmoji[5],
         },
+        value: "5",
       },
       {
-        type: "actions",
-        block_id,
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              emoji: true,
-              text: ":star-struck:",
-            },
-            value: "5",
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              emoji: true,
-              text: ":smile:",
-            },
-            value: "4",
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              emoji: true,
-              text: ":slightly_smiling_face:",
-            },
-            value: "3",
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              emoji: true,
-              text: ":neutral_face:",
-            },
-            value: "2",
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              emoji: true,
-              text: ":white_frowning_face:",
-            },
-            value: "1",
-          },
-        ],
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: moodEmoji[4],
+        },
+        value: "4",
+      },
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: moodEmoji[3],
+        },
+        value: "3",
+      },
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: moodEmoji[2],
+        },
+        value: "2",
+      },
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: moodEmoji[1],
+        },
+        value: "1",
       },
     ],
+  },
+]
+
+const makeChallengeBlocks = block_id => [
+  {
+    type: "header",
+    text: {
+      type: "plain_text",
+      text: "What was your challenge this week?",
+      emoji: true,
+    },
+  },
+  {
+    type: "actions",
+    block_id,
+    elements: [
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: "Collaboration",
+        },
+        value: "a",
+      },
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: "Loneliness",
+        },
+        value: "b",
+      },
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: "Collaboration Tools",
+        },
+        value: "c",
+      },
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: "Distractions",
+        },
+        value: "d",
+      },
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: "Unplugging",
+        },
+        value: "e",
+      },
+    ],
+  },
+]
+
+const askMood = async (url, date, init = false) => {
+  let json = {
+    blocks: makeMoodBlocks(date === undefined ? "mood" : `mood-${date}`),
   }
 
   if (init) {
@@ -225,6 +228,43 @@ const thanks = async (url, solution) => {
   await axios.post(url, {
     text: text.join("\n"),
   })
+}
+
+const openChannel = async user_id =>
+  (
+    await axios.post(
+      "https://slack.com/api/conversations.open",
+      qs.stringify({
+        token: functions.config().slack.bot_token,
+        users: user_id,
+      })
+    )
+  ).data.channel.id
+
+const ask = async (channel, blocks) =>
+  await axios.post(
+    "https://slack.com/api/chat.postMessage",
+    { blocks: blocks, channel },
+    {
+      headers: {
+        Authorization: `Bearer ${functions.config().slack.bot_token}`,
+      },
+    }
+  )
+
+const askMoodDM = async user =>
+  await ask(await openChannel(user.user_id), makeMoodBlocks("mood"))
+
+const askChallengeDM = async user =>
+  await ask(await openChannel(user.user_id), makeChallengeBlocks("challenge"))
+
+const parseDate = date => {
+  const parsed = moment(date, "DD.MM.YYYY")
+  if (parsed.isValid()) {
+    return +parsed.format("x")
+  } else {
+    return false
+  }
 }
 
 exports.start_mood_tracker = functions.https.onRequest(async (req, res) => {
@@ -338,15 +378,6 @@ exports.genie = functions.https.onRequest(async (req, res) => {
   }
 })
 
-const parseDate = date => {
-  const parsed = moment(date, "DD.MM.YYYY")
-  if (parsed.isValid()) {
-    return +parsed.format("x")
-  } else {
-    return false
-  }
-}
-
 exports.interact = functions.https.onRequest(async (req, res) => {
   try {
     verifyMethod(req, "POST")
@@ -433,5 +464,15 @@ exports.show_mood = functions.https.onRequest(async (req, res) => {
 })
 
 exports.cron = functions.https.onRequest(async (req, res) => {
+  const seven_days = Date.now() - 1000 * 60 * 60 * 24 * 7
+  const three_days = Date.now() - 1000 * 60 * 60 * 24 * 3
+  const [users_mood, users_challenge] = await Promise.all([
+    db.collection("users", ["last_mood", "<", three_days]).get(),
+    db.collection("users", ["last_challenge", "<", seven_days]).get(),
+  ])
+  let prs = []
+  users_mood.forEach(doc => prs.push(askMoodDM(doc.data())))
+  users_challenge.forEach(doc => prs.push(askChallengeDM(doc.data())))
+  if (prs.length !== 0) await Promise.all(prs)
   res.send(`ok`)
 })
