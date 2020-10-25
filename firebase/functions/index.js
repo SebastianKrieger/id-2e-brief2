@@ -3,12 +3,14 @@ const admin = require("firebase-admin")
 admin.initializeApp()
 
 const db = admin.firestore()
+const fv = admin.firestore.FieldValue
 
 const { verifyRequestSignature } = require("@slack/events-api")
 
 const axios = require("axios")
 const qs = require("qs")
 const moment = require("moment")
+const { isNil, includes } = require("ramda")
 
 /**
  * Verify that the webhook request came from Slack.
@@ -475,4 +477,78 @@ exports.cron = functions.https.onRequest(async (req, res) => {
   users_challenge.forEach(doc => prs.push(askChallengeDM(doc.data())))
   if (prs.length !== 0) await Promise.all(prs)
   res.send(`ok`)
+})
+const getUserByName = async name => {
+  const docs = await db
+    .collection("users")
+    .where("user_name", "==", name)
+    .limit(1)
+    .get()
+  let user = null
+  docs.forEach(doc => {
+    user = doc.data()
+  })
+  return user
+}
+
+const initSupervisor = async req => {
+  const ref = db.collection("settings").doc("default")
+  const settings = (await ref.get()).data()
+  const user_id = req.body.user_id
+  const user_name = req.body.user_name
+  const supervisor = !/^\s*$/.test(req.body.text)
+    ? await getUserByName(req.body.text.replace(/^@/, ""))
+    : { user_id, user_name }
+  return { ref, settings, user_id, user_name, supervisor }
+}
+
+exports.addSupervisor = functions.https.onRequest(async (req, res) => {
+  const {
+    ref,
+    settings,
+    user_id,
+    user_name,
+    supervisor,
+    supervisors,
+  } = await initSupervisor(ref)
+  if (isNil(supervisor)) {
+    res.send(`${req.body.text.replace(/^@/, "")} is not using the mood-tracker`)
+  } else if (
+    isNil(settings) ||
+    isNil(settings.supervisors) ||
+    settings.supervisors.length === 0
+  ) {
+    await ref.set({ supervisors: fv.arrayUnion(user_id) }, { merge: true })
+    res.send(`You are added as a supervisor`)
+  } else if (!includes(user_id)(settings.supervisors)) {
+    res.send(`You don't have permission to add supervisors`)
+  } else {
+    if (includes(supervisor.user_id)(settings.supervisors)) {
+      res.send(`${supervisor.user_name} is already a supervisor`)
+    } else {
+      await ref.update({ supervisors: fv.arrayUnion(supervisor.user_id) })
+      res.send(`${supervisor.user_name} is added as a supervisor`)
+    }
+  }
+})
+
+exports.removeSupervisor = functions.https.onRequest(async (req, res) => {
+  const {
+    ref,
+    settings,
+    user_id,
+    user_name,
+    supervisor,
+    supervisors,
+  } = await initSupervisor(ref)
+  if (!includes(user_id)(supervisors)) {
+    res.send(`You don't have permission to add supervisors`)
+  } else {
+    if (!includes(supervisor.user_id)(settings.supervisors)) {
+      res.send(`${supervisor.user_name} is not a supervisor`)
+    } else {
+      await ref.update({ supervisors: fv.arrayRemove(supervisor.user_id) })
+      res.send(`${supervisor.user_name} is removed from the supervisors`)
+    }
+  }
 })
