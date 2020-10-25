@@ -54,7 +54,7 @@ const verifyMethod = (req, method) => {
   }
 }
 
-const moodEmoji = {
+const MOODS = {
   1: ":tired_face:",
   2: ":white_frowning_face:",
   3: ":slightly_smiling_face:",
@@ -62,13 +62,21 @@ const moodEmoji = {
   5: ":star-struck:",
 }
 
-const solutions = {
+const CHALLENGES = {
   a: "collaboration",
   b: "loneliness",
   c: "collaboration-tools",
   d: "distractions",
   e: "unplugging",
 }
+
+const getSummary = compose(
+  reverse,
+  sortBy(prop("length")),
+  values,
+  mapObjIndexed((v, k) => ({ length: v.length, value: k })),
+  groupBy(prop("value"))
+)
 
 const getUser = async user_id => {
   const doc = await db.collection("users").doc(user_id).get()
@@ -86,6 +94,31 @@ const askChallenge = async (url, date) => {
     url.json(json)
   }
 }
+
+const getUserByName = async name => {
+  const docs = await db
+    .collection("users")
+    .where("user_name", "==", name)
+    .limit(1)
+    .get()
+  let user = null
+  docs.forEach(doc => {
+    user = doc.data()
+  })
+  return user
+}
+
+const initSupervisor = async req => {
+  const ref = db.collection("settings").doc("default")
+  const settings = (await ref.get()).data()
+  const user_id = req.body.user_id
+  const user_name = req.body.user_name
+  const supervisor = !/^\s*$/.test(req.body.text)
+    ? await getUserByName(req.body.text.replace(/^@/, ""))
+    : { user_id, user_name }
+  return { ref, settings, user_id, user_name, supervisor }
+}
+
 const makeMoodBlocks = block_id => [
   {
     type: "header",
@@ -104,7 +137,7 @@ const makeMoodBlocks = block_id => [
         text: {
           type: "plain_text",
           emoji: true,
-          text: moodEmoji[5],
+          text: MOODS[5],
         },
         value: "5",
       },
@@ -113,7 +146,7 @@ const makeMoodBlocks = block_id => [
         text: {
           type: "plain_text",
           emoji: true,
-          text: moodEmoji[4],
+          text: MOODS[4],
         },
         value: "4",
       },
@@ -122,7 +155,7 @@ const makeMoodBlocks = block_id => [
         text: {
           type: "plain_text",
           emoji: true,
-          text: moodEmoji[3],
+          text: MOODS[3],
         },
         value: "3",
       },
@@ -131,7 +164,7 @@ const makeMoodBlocks = block_id => [
         text: {
           type: "plain_text",
           emoji: true,
-          text: moodEmoji[2],
+          text: MOODS[2],
         },
         value: "2",
       },
@@ -140,7 +173,7 @@ const makeMoodBlocks = block_id => [
         text: {
           type: "plain_text",
           emoji: true,
-          text: moodEmoji[1],
+          text: MOODS[1],
         },
         value: "1",
       },
@@ -234,10 +267,10 @@ const askMood = async (url, date, init = false) => {
 }
 
 const thanks = async (url, solution) => {
-  let text = [`Thank you, I saved it!`]
-  if (solutions[solution] !== undefined) {
+  let text = [`Thank you, It's been recorded!`]
+  if (CHALLENGES[solution] !== undefined) {
     text.push(`Here's a prescription for your challenge!`)
-    text.push(`https://id-2e.com/${solutions[solution]}/`)
+    text.push(`https://id-2e.com/${CHALLENGES[solution]}/`)
   }
   await axios.post(url, {
     text: text.join("\n"),
@@ -442,19 +475,12 @@ exports.interact = functions.https.onRequest(async (req, res) => {
     return Promise.reject(err)
   }
 })
-const getSummary = compose(
-  reverse,
-  sortBy(prop("length")),
-  values,
-  mapObjIndexed((v, k) => ({ length: v.length, value: k })),
-  groupBy(prop("value"))
-)
 
 exports.show_mood = functions.https.onRequest(async (req, res) => {
   try {
     verifyMethod(req, "POST")
     verifyWebhook(req)
-
+    const two_months = getDateAgo(60)
     const moods = compose(
       sortBy(prop("date")),
       map(doc => doc.data())
@@ -463,6 +489,7 @@ exports.show_mood = functions.https.onRequest(async (req, res) => {
         await db
           .collection("moods")
           .where("user_id", "==", req.body.user_id)
+          .where("date", ">=", two_months)
           .get()
       ).docs
     )
@@ -476,6 +503,7 @@ exports.show_mood = functions.https.onRequest(async (req, res) => {
         await db
           .collection("challenges")
           .where("user_id", "==", req.body.user_id)
+          .where("date", ">=", two_months)
           .get()
       ).docs
     )
@@ -491,18 +519,14 @@ exports.show_mood = functions.https.onRequest(async (req, res) => {
         mess.push("\n*Your last motivation levels:* ")
         for (const mood of moods) {
           mess.push(
-            `${moment(mood.date).format("MM/DD (ddd)")} => ${
-              moodEmoji[mood.value]
-            }`
+            `${moment(mood.date).format("MM/DD (ddd)")} => ${MOODS[mood.value]}`
           )
         }
         summaries.push("\n*Your motivation summary:* ")
         let _summary = []
         for (let m of mood_summary) {
           _summary.push(
-            `${moodEmoji[m.value]} ${Math.round(
-              (m.length / moods.length) * 100
-            )} %`
+            `${MOODS[m.value]} ${Math.round((m.length / moods.length) * 100)} %`
           )
         }
         summaries.push(_summary.join(" : "))
@@ -520,11 +544,11 @@ exports.show_mood = functions.https.onRequest(async (req, res) => {
         summaries.push("\n*Your challenge summary and prescriptions:* ")
         for (let c of challenge_summary) {
           summaries.push(
-            `${solutions[c.value]} : ${Math.round(
+            `${CHALLENGES[c.value]} : ${Math.round(
               (c.length / challenges.length) * 100
             )} %`
           )
-          summaries.push(`https://id-2e.com/${solutions[c.value]}/`)
+          summaries.push(`https://id-2e.com/${CHALLENGES[c.value]}/`)
         }
       }
       res.send(`${mess.join("\n")}\n${summaries.join("\n")}`)
@@ -537,9 +561,71 @@ exports.show_mood = functions.https.onRequest(async (req, res) => {
   }
 })
 
+exports.show_team_mood = functions.https.onRequest(async (req, res) => {
+  try {
+    verifyMethod(req, "POST")
+    verifyWebhook(req)
+    const two_months = getDateAgo(60)
+    const moods = compose(
+      sortBy(prop("date")),
+      map(doc => doc.data())
+    )((await db.collection("moods").where("date", ">=", two_months).get()).docs)
+    const mood_summary = getSummary(moods)
+
+    const challenges = compose(
+      sortBy(prop("date")),
+      map(doc => doc.data())
+    )(
+      (await db.collection("challenges").where("date", ">=", two_months).get())
+        .docs
+    )
+
+    const challenge_summary = getSummary(challenges)
+
+    if (moods.length === 0 && challenges.length === 0) {
+      res.send("No avaible data for your team")
+    } else {
+      let mess = ["Here's your team's stats for the last 2 months."]
+      let summaries = []
+      if (moods.length !== 0) {
+        summaries.push("\n*Your team's motivation summary:* ")
+        let _summary = []
+        for (let m of mood_summary) {
+          _summary.push(
+            `${MOODS[m.value]} ${Math.round((m.length / moods.length) * 100)} %`
+          )
+        }
+        summaries.push(_summary.join(" : "))
+      }
+
+      if (challenges.length !== 0) {
+        summaries.push(
+          "\n*The challenge summary and prescriptions for your team:* "
+        )
+        for (let c of challenge_summary) {
+          summaries.push(
+            `${CHALLENGES[c.value]} : ${Math.round(
+              (c.length / challenges.length) * 100
+            )} %`
+          )
+          summaries.push(`https://id-2e.com/${CHALLENGES[c.value]}/`)
+        }
+      }
+      res.send(`${mess.join("\n")}\n${summaries.join("\n")}`)
+    }
+    return Promise.resolve()
+  } catch (err) {
+    console.error(err)
+    res.status(err.code || 500).send(err)
+    return Promise.reject(err)
+  }
+})
+
+const getDateAgo = days => Date.now() - 1000 * 60 * 60 * 24 * days
+
 exports.cron = functions.https.onRequest(async (req, res) => {
-  const seven_days = Date.now() - 1000 * 60 * 60 * 24 * 7
-  const three_days = Date.now() - 1000 * 60 * 60 * 24 * 3
+  const seven_days = getDateAgo(7)
+  const three_days = getDateAgo(3)
   const [users_mood, users_challenge] = await Promise.all([
     db.collection("users", ["last_mood", "<", three_days]).get(),
     db.collection("users", ["last_challenge", "<", seven_days]).get(),
@@ -550,29 +636,6 @@ exports.cron = functions.https.onRequest(async (req, res) => {
   if (prs.length !== 0) await Promise.all(prs)
   res.send(`ok`)
 })
-const getUserByName = async name => {
-  const docs = await db
-    .collection("users")
-    .where("user_name", "==", name)
-    .limit(1)
-    .get()
-  let user = null
-  docs.forEach(doc => {
-    user = doc.data()
-  })
-  return user
-}
-
-const initSupervisor = async req => {
-  const ref = db.collection("settings").doc("default")
-  const settings = (await ref.get()).data()
-  const user_id = req.body.user_id
-  const user_name = req.body.user_name
-  const supervisor = !/^\s*$/.test(req.body.text)
-    ? await getUserByName(req.body.text.replace(/^@/, ""))
-    : { user_id, user_name }
-  return { ref, settings, user_id, user_name, supervisor }
-}
 
 exports.addSupervisor = functions.https.onRequest(async (req, res) => {
   const {
