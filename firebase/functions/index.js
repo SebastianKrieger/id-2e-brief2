@@ -11,6 +11,9 @@ const axios = require("axios")
 const qs = require("qs")
 const moment = require("moment")
 const {
+  uniq,
+  pluck,
+  indexBy,
   isNil,
   includes,
   map,
@@ -21,7 +24,7 @@ const {
   groupBy,
   prop,
   pick,
-  values,
+  values
 } = require("ramda")
 
 /**
@@ -36,7 +39,7 @@ const verifyWebhook = req => {
     signingSecret: functions.config().slack.secret,
     requestSignature: req.headers["x-slack-signature"],
     requestTimestamp: req.headers["x-slack-request-timestamp"],
-    body: req.rawBody,
+    body: req.rawBody
   }
 
   if (!verifyRequestSignature(signature)) {
@@ -72,7 +75,7 @@ const MOODS = {
   2: ":white_frowning_face:",
   3: ":slightly_smiling_face:",
   4: ":smile:",
-  5: ":star-struck:",
+  5: ":star-struck:"
 }
 
 const CHALLENGES = {
@@ -80,21 +83,31 @@ const CHALLENGES = {
   b: "loneliness",
   c: "collaboration-tools",
   d: "distractions",
-  e: "unplugging",
+  e: "unplugging"
 }
 
 const getSummary = compose(
   reverse,
   sortBy(prop("length")),
   values,
-  mapObjIndexed((v, k) => ({ length: v.length, value: k })),
+  mapObjIndexed((v, k) => ({
+    length: v.length,
+    value: k,
+    users: compose(
+      uniq,
+      pluck("user_id")
+    )(v)
+  })),
   groupBy(prop("value"))
 )
 
 const getDateAgo = days => Date.now() - 1000 * 60 * 60 * 24 * days
 
 const getUser = async user_id => {
-  const doc = await db.collection("users").doc(user_id).get()
+  const doc = await db
+    .collection("users")
+    .doc(user_id)
+    .get()
   return doc.exists ? doc.data() : null
 }
 
@@ -105,7 +118,7 @@ const addSupervisor = async (req, res, url) => {
     user_id,
     user_name,
     supervisor,
-    supervisors,
+    supervisors
   } = await initSupervisor(req)
   const body = !isNil(req.body.user_id)
     ? req.body
@@ -143,7 +156,7 @@ const removeSupervisor = async (req, res, url) => {
     user_id,
     user_name,
     supervisor,
-    supervisors,
+    supervisors
   } = await initSupervisor(req)
   const body = !isNil(req.body.user_id)
     ? req.body
@@ -166,7 +179,7 @@ const removeSupervisor = async (req, res, url) => {
 const askChallenge = async (url, date) => {
   const block_id = date === undefined ? "challenge" : `challenge-${date}`
   const json = {
-    blocks: makeChallengeBlocks(block_id),
+    blocks: makeChallengeBlocks(block_id)
   }
   if (typeof url === "string") {
     await axios.post(url, json)
@@ -199,8 +212,8 @@ const initSupervisor = async req => {
   const supervisor = isNil(body.text)
     ? { user_id, user_name }
     : !/^\s*$/.test(body.text)
-    ? await getUserByName(body.text.replace(/^@/, ""))
-    : { user_id, user_name }
+      ? await getUserByName(body.text.replace(/^@/, ""))
+      : { user_id, user_name }
   return { ref, settings, user_id, user_name, supervisor }
 }
 
@@ -210,8 +223,8 @@ const makeMoodBlocks = block_id => [
     text: {
       type: "plain_text",
       text: "What is your motivation level right now?",
-      emoji: true,
-    },
+      emoji: true
+    }
   },
   {
     type: "actions",
@@ -222,48 +235,48 @@ const makeMoodBlocks = block_id => [
         text: {
           type: "plain_text",
           emoji: true,
-          text: MOODS[5],
+          text: MOODS[5]
         },
-        value: "5",
+        value: "5"
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: MOODS[4],
+          text: MOODS[4]
         },
-        value: "4",
+        value: "4"
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: MOODS[3],
+          text: MOODS[3]
         },
-        value: "3",
+        value: "3"
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: MOODS[2],
+          text: MOODS[2]
         },
-        value: "2",
+        value: "2"
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: MOODS[1],
+          text: MOODS[1]
         },
-        value: "1",
-      },
-    ],
-  },
+        value: "1"
+      }
+    ]
+  }
 ]
 
 const makeChallengeBlocks = block_id => [
@@ -272,8 +285,8 @@ const makeChallengeBlocks = block_id => [
     text: {
       type: "plain_text",
       text: "What was your challenge this week?",
-      emoji: true,
-    },
+      emoji: true
+    }
   },
   {
     type: "actions",
@@ -284,53 +297,53 @@ const makeChallengeBlocks = block_id => [
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Collaboration",
+          text: "Collaboration"
         },
-        value: "a",
+        value: "a"
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Loneliness",
+          text: "Loneliness"
         },
-        value: "b",
+        value: "b"
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Collaboration Tools",
+          text: "Collaboration Tools"
         },
-        value: "c",
+        value: "c"
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Distractions",
+          text: "Distractions"
         },
-        value: "d",
+        value: "d"
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Unplugging",
+          text: "Unplugging"
         },
-        value: "e",
-      },
-    ],
-  },
+        value: "e"
+      }
+    ]
+  }
 ]
 
 const askMood = async (url, date, init = false) => {
   let json = {
-    blocks: makeMoodBlocks(date === undefined ? "mood" : `mood-${date}`),
+    blocks: makeMoodBlocks(date === undefined ? "mood" : `mood-${date}`)
   }
 
   if (init) {
@@ -339,8 +352,8 @@ const askMood = async (url, date, init = false) => {
       text: {
         type: "plain_text",
         text: "Yeah! I started motivation tracking! Here's the first one:",
-        emoji: true,
-      },
+        emoji: true
+      }
     })
   }
 
@@ -358,20 +371,18 @@ const thanks = async (url, solution) => {
     text.push(`https://id-2e.com/${CHALLENGES[solution]}/`)
   }
   await axios.post(url, {
-    text: text.join("\n"),
+    text: text.join("\n")
   })
 }
 
 const openChannel = async user_id =>
-  (
-    await axios.post(
-      "https://slack.com/api/conversations.open",
-      qs.stringify({
-        token: functions.config().slack.bot_token,
-        users: user_id,
-      })
-    )
-  ).data.channel.id
+  (await axios.post(
+    "https://slack.com/api/conversations.open",
+    qs.stringify({
+      token: functions.config().slack.bot_token,
+      users: user_id
+    })
+  )).data.channel.id
 
 const ask = async (channel, blocks) =>
   await axios.post(
@@ -379,8 +390,8 @@ const ask = async (channel, blocks) =>
     { blocks: blocks, channel },
     {
       headers: {
-        Authorization: `Bearer ${functions.config().slack.bot_token}`,
-      },
+        Authorization: `Bearer ${functions.config().slack.bot_token}`
+      }
     }
   )
 
@@ -401,7 +412,7 @@ const parseDate = date => {
 const message = async (mess, url) => {
   if (typeof url === "string") {
     await axios.post(url, {
-      text: mess,
+      text: mess
     })
   } else {
     url.send(mess)
@@ -427,7 +438,7 @@ const startTracking = async (req, res, url) => {
         user_id: body.user_id || body.user.id,
         user_name: body.user_name || body.user.username,
         date: Date.now(),
-        track: true,
+        track: true
       })
     await askMood(isNil(url) ? res : url, undefined, true)
   }
@@ -448,20 +459,32 @@ const endTracking = async (req, res, url) => {
     await message(`You have stopped motivation tracking.`, url || res)
   }
 }
+
 const showTeamStats = async (req, res, url) => {
+  const users = compose(
+    indexBy(prop("user_id")),
+    map(doc => doc.data())((await db.collection("users").get()).docs)
+  )
   const two_months = getDateAgo(60)
   const moods = compose(
     sortBy(prop("date")),
     map(doc => doc.data())
-  )((await db.collection("moods").where("date", ">=", two_months).get()).docs)
+  )(
+    (await db
+      .collection("moods")
+      .where("date", ">=", two_months)
+      .get()).docs
+  )
   const mood_summary = getSummary(moods)
 
   const challenges = compose(
     sortBy(prop("date")),
     map(doc => doc.data())
   )(
-    (await db.collection("challenges").where("date", ">=", two_months).get())
-      .docs
+    (await db
+      .collection("challenges")
+      .where("date", ">=", two_months)
+      .get()).docs
   )
 
   const challenge_summary = getSummary(challenges)
@@ -490,7 +513,7 @@ const showTeamStats = async (req, res, url) => {
         summaries.push(
           `${CHALLENGES[c.value]} : ${Math.round(
             (c.length / challenges.length) * 100
-          )} %`
+          )} % (${c.users.join(", ")})`
         )
         summaries.push(`https://id-2e.com/${CHALLENGES[c.value]}/`)
       }
@@ -508,13 +531,11 @@ const showStats = async (req, res, url) => {
     sortBy(prop("date")),
     map(doc => doc.data())
   )(
-    (
-      await db
-        .collection("moods")
-        .where("user_id", "==", body.user_id || body.user.id)
-        .where("date", ">=", two_months)
-        .get()
-    ).docs
+    (await db
+      .collection("moods")
+      .where("user_id", "==", body.user_id || body.user.id)
+      .where("date", ">=", two_months)
+      .get()).docs
   )
   const mood_summary = getSummary(moods)
 
@@ -522,13 +543,11 @@ const showStats = async (req, res, url) => {
     sortBy(prop("date")),
     map(doc => doc.data())
   )(
-    (
-      await db
-        .collection("challenges")
-        .where("user_id", "==", body.user_id || body.user.id)
-        .where("date", ">=", two_months)
-        .get()
-    ).docs
+    (await db
+      .collection("challenges")
+      .where("user_id", "==", body.user_id || body.user.id)
+      .where("date", ">=", two_months)
+      .get()).docs
   )
 
   const challenge_summary = getSummary(challenges)
@@ -616,9 +635,9 @@ exports.slack_mirror = functions.https.onRequest(async (req, res) => {
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Start Tracking",
+          text: "Start Tracking"
         },
-        value: "a",
+        value: "a"
       })
     }
     if (!isNil(user) && user.track === true) {
@@ -627,9 +646,9 @@ exports.slack_mirror = functions.https.onRequest(async (req, res) => {
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Show My Stats",
+          text: "Show My Stats"
         },
-        value: "b",
+        value: "b"
       })
       const {
         ref,
@@ -637,7 +656,7 @@ exports.slack_mirror = functions.https.onRequest(async (req, res) => {
         user_id,
         user_name,
         supervisor,
-        supervisors,
+        supervisors
       } = await initSupervisor(req)
       if (
         isNil(settings) ||
@@ -649,9 +668,9 @@ exports.slack_mirror = functions.https.onRequest(async (req, res) => {
           text: {
             type: "plain_text",
             emoji: true,
-            text: "Add Supervisor",
+            text: "Add Supervisor"
           },
-          value: "d",
+          value: "d"
         })
       } else if (includes(user_id)(settings.supervisors)) {
         elms.push({
@@ -659,9 +678,9 @@ exports.slack_mirror = functions.https.onRequest(async (req, res) => {
           text: {
             type: "plain_text",
             emoji: true,
-            text: "Show Team Stats",
+            text: "Show Team Stats"
           },
-          value: "c",
+          value: "c"
         })
       }
       elms.push({
@@ -669,9 +688,9 @@ exports.slack_mirror = functions.https.onRequest(async (req, res) => {
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Stop Tracking",
+          text: "Stop Tracking"
         },
-        value: "f",
+        value: "f"
       })
     }
     const json = {
@@ -681,15 +700,15 @@ exports.slack_mirror = functions.https.onRequest(async (req, res) => {
           text: {
             type: "plain_text",
             text: "Welcome to Slack Mirror! What would you like to do?",
-            emoji: true,
-          },
+            emoji: true
+          }
         },
         {
           type: "actions",
           block_id: "slack_mirror",
-          elements: elms,
-        },
-      ],
+          elements: elms
+        }
+      ]
     }
     res.json(json)
     return Promise.resolve()
@@ -777,20 +796,26 @@ exports.interact = functions.https.onRequest(async (req, res) => {
         date,
         user_id,
         value,
-        text,
+        text
       })
-      await db.collection("users").doc(user_id).update({
-        last_challenge: date,
-      })
+      await db
+        .collection("users")
+        .doc(user_id)
+        .update({
+          last_challenge: date
+        })
       await thanks(payload.response_url, value)
     } else if (action_type === "mood") {
-      await db.collection("users").doc(user_id).update({
-        last_mood: date,
-      })
+      await db
+        .collection("users")
+        .doc(user_id)
+        .update({
+          last_mood: date
+        })
       await db.collection("moods").add({
         date,
         user_id,
-        value: +value,
+        value: +value
       })
       const user = await getUser(user_id)
       if (user.last_challenge < Date.now() - 1000 * 60 * 60 * 5) {
@@ -832,7 +857,7 @@ exports.cron = functions.https.onRequest(async (req, res) => {
   const three_days = getDateAgo(3)
   const [users_mood, users_challenge] = await Promise.all([
     db.collection("users", ["last_mood", "<", three_days]).get(),
-    db.collection("users", ["last_challenge", "<", seven_days]).get(),
+    db.collection("users", ["last_challenge", "<", seven_days]).get()
   ])
   let prs = []
   users_mood.forEach(doc => prs.push(askMoodDM(doc.data())))
