@@ -24,7 +24,7 @@ const {
   groupBy,
   prop,
   pick,
-  values
+  values,
 } = require("ramda")
 
 /**
@@ -39,7 +39,7 @@ const verifyWebhook = req => {
     signingSecret: functions.config().slack.secret,
     requestSignature: req.headers["x-slack-signature"],
     requestTimestamp: req.headers["x-slack-request-timestamp"],
-    body: req.rawBody
+    body: req.rawBody,
   }
 
   if (!verifyRequestSignature(signature)) {
@@ -75,7 +75,7 @@ const MOODS = {
   2: ":white_frowning_face:",
   3: ":slightly_smiling_face:",
   4: ":smile:",
-  5: ":star-struck:"
+  5: ":star-struck:",
 }
 
 const CHALLENGES = {
@@ -83,7 +83,7 @@ const CHALLENGES = {
   b: "loneliness",
   c: "collaboration-tools",
   d: "distractions",
-  e: "unplugging"
+  e: "unplugging",
 }
 
 const getSummary = compose(
@@ -93,21 +93,25 @@ const getSummary = compose(
   mapObjIndexed((v, k) => ({
     length: v.length,
     value: k,
-    users: compose(
-      uniq,
-      pluck("user_id")
-    )(v)
+    users: compose(uniq, pluck("user_id"))(v),
   })),
   groupBy(prop("value"))
 )
 
+const genie = async (req, res) => {
+  const text = req.body.text
+  await db
+    .collection("wishes")
+    .add({ user_id: req.body.user_id, text, date: Date.now() })
+  res.send(
+    `Your Wish: ${text}\nGenie: ...seems to be sleeping at the moment, sorry!`
+  )
+}
+
 const getDateAgo = days => Date.now() - 1000 * 60 * 60 * 24 * days
 
 const getUser = async user_id => {
-  const doc = await db
-    .collection("users")
-    .doc(user_id)
-    .get()
+  const doc = await db.collection("users").doc(user_id).get()
   return doc.exists ? doc.data() : null
 }
 
@@ -118,7 +122,7 @@ const addSupervisor = async (req, res, url) => {
     user_id,
     user_name,
     supervisor,
-    supervisors
+    supervisors,
   } = await initSupervisor(req)
   const body = !isNil(req.body.user_id)
     ? req.body
@@ -156,7 +160,7 @@ const removeSupervisor = async (req, res, url) => {
     user_id,
     user_name,
     supervisor,
-    supervisors
+    supervisors,
   } = await initSupervisor(req)
   const body = !isNil(req.body.user_id)
     ? req.body
@@ -179,7 +183,7 @@ const removeSupervisor = async (req, res, url) => {
 const askChallenge = async (url, date) => {
   const block_id = date === undefined ? "challenge" : `challenge-${date}`
   const json = {
-    blocks: makeChallengeBlocks(block_id)
+    blocks: makeChallengeBlocks(block_id),
   }
   if (typeof url === "string") {
     await axios.post(url, json)
@@ -212,8 +216,8 @@ const initSupervisor = async req => {
   const supervisor = isNil(body.text)
     ? { user_id, user_name }
     : !/^\s*$/.test(body.text)
-      ? await getUserByName(body.text.replace(/^@/, ""))
-      : { user_id, user_name }
+    ? await getUserByName(body.text.replace(/^@/, ""))
+    : { user_id, user_name }
   return { ref, settings, user_id, user_name, supervisor }
 }
 
@@ -223,8 +227,8 @@ const makeMoodBlocks = block_id => [
     text: {
       type: "plain_text",
       text: "What is your motivation level right now?",
-      emoji: true
-    }
+      emoji: true,
+    },
   },
   {
     type: "actions",
@@ -235,48 +239,48 @@ const makeMoodBlocks = block_id => [
         text: {
           type: "plain_text",
           emoji: true,
-          text: MOODS[5]
+          text: MOODS[5],
         },
-        value: "5"
+        value: "5",
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: MOODS[4]
+          text: MOODS[4],
         },
-        value: "4"
+        value: "4",
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: MOODS[3]
+          text: MOODS[3],
         },
-        value: "3"
+        value: "3",
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: MOODS[2]
+          text: MOODS[2],
         },
-        value: "2"
+        value: "2",
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: MOODS[1]
+          text: MOODS[1],
         },
-        value: "1"
-      }
-    ]
-  }
+        value: "1",
+      },
+    ],
+  },
 ]
 
 const makeChallengeBlocks = block_id => [
@@ -285,8 +289,8 @@ const makeChallengeBlocks = block_id => [
     text: {
       type: "plain_text",
       text: "What was your challenge this week?",
-      emoji: true
-    }
+      emoji: true,
+    },
   },
   {
     type: "actions",
@@ -297,53 +301,53 @@ const makeChallengeBlocks = block_id => [
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Collaboration"
+          text: "Collaboration",
         },
-        value: "a"
+        value: "a",
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Loneliness"
+          text: "Loneliness",
         },
-        value: "b"
+        value: "b",
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Collaboration Tools"
+          text: "Collaboration Tools",
         },
-        value: "c"
+        value: "c",
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Distractions"
+          text: "Distractions",
         },
-        value: "d"
+        value: "d",
       },
       {
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Unplugging"
+          text: "Unplugging",
         },
-        value: "e"
-      }
-    ]
-  }
+        value: "e",
+      },
+    ],
+  },
 ]
 
 const askMood = async (url, date, init = false) => {
   let json = {
-    blocks: makeMoodBlocks(date === undefined ? "mood" : `mood-${date}`)
+    blocks: makeMoodBlocks(date === undefined ? "mood" : `mood-${date}`),
   }
 
   if (init) {
@@ -352,8 +356,8 @@ const askMood = async (url, date, init = false) => {
       text: {
         type: "plain_text",
         text: "Yeah! I started motivation tracking! Here's the first one:",
-        emoji: true
-      }
+        emoji: true,
+      },
     })
   }
 
@@ -371,18 +375,20 @@ const thanks = async (url, solution) => {
     text.push(`https://id-2e.com/${CHALLENGES[solution]}/`)
   }
   await axios.post(url, {
-    text: text.join("\n")
+    text: text.join("\n"),
   })
 }
 
 const openChannel = async user_id =>
-  (await axios.post(
-    "https://slack.com/api/conversations.open",
-    qs.stringify({
-      token: functions.config().slack.bot_token,
-      users: user_id
-    })
-  )).data.channel.id
+  (
+    await axios.post(
+      "https://slack.com/api/conversations.open",
+      qs.stringify({
+        token: functions.config().slack.bot_token,
+        users: user_id,
+      })
+    )
+  ).data.channel.id
 
 const ask = async (channel, blocks) =>
   await axios.post(
@@ -390,8 +396,8 @@ const ask = async (channel, blocks) =>
     { blocks: blocks, channel },
     {
       headers: {
-        Authorization: `Bearer ${functions.config().slack.bot_token}`
-      }
+        Authorization: `Bearer ${functions.config().slack.bot_token}`,
+      },
     }
   )
 
@@ -409,15 +415,17 @@ const parseDate = date => {
     return false
   }
 }
+
 const message = async (mess, url) => {
   if (typeof url === "string") {
     await axios.post(url, {
-      text: mess
+      text: mess,
     })
   } else {
     url.send(mess)
   }
 }
+
 const startTracking = async (req, res, url) => {
   const body = !isNil(req.body.user_id)
     ? req.body
@@ -438,7 +446,7 @@ const startTracking = async (req, res, url) => {
         user_id: body.user_id || body.user.id,
         user_name: body.user_name || body.user.username,
         date: Date.now(),
-        track: true
+        track: true,
       })
     await askMood(isNil(url) ? res : url, undefined, true)
   }
@@ -463,28 +471,21 @@ const endTracking = async (req, res, url) => {
 const showTeamStats = async (req, res, url) => {
   const users = compose(
     indexBy(prop("user_id")),
-    map(doc => doc.data())((await db.collection("users").get()).docs)
-  )
+    map(doc => doc.data())
+  )((await db.collection("users").get()).docs)
   const two_months = getDateAgo(60)
   const moods = compose(
     sortBy(prop("date")),
     map(doc => doc.data())
-  )(
-    (await db
-      .collection("moods")
-      .where("date", ">=", two_months)
-      .get()).docs
-  )
+  )((await db.collection("moods").where("date", ">=", two_months).get()).docs)
   const mood_summary = getSummary(moods)
 
   const challenges = compose(
     sortBy(prop("date")),
     map(doc => doc.data())
   )(
-    (await db
-      .collection("challenges")
-      .where("date", ">=", two_months)
-      .get()).docs
+    (await db.collection("challenges").where("date", ">=", two_months).get())
+      .docs
   )
 
   const challenge_summary = getSummary(challenges)
@@ -513,7 +514,7 @@ const showTeamStats = async (req, res, url) => {
         summaries.push(
           `${CHALLENGES[c.value]} : ${Math.round(
             (c.length / challenges.length) * 100
-          )} % (${c.users.join(", ")})`
+          )} % (${map(v => users[v].user_name)(c.users).join(", ")})`
         )
         summaries.push(`https://id-2e.com/${CHALLENGES[c.value]}/`)
       }
@@ -531,11 +532,13 @@ const showStats = async (req, res, url) => {
     sortBy(prop("date")),
     map(doc => doc.data())
   )(
-    (await db
-      .collection("moods")
-      .where("user_id", "==", body.user_id || body.user.id)
-      .where("date", ">=", two_months)
-      .get()).docs
+    (
+      await db
+        .collection("moods")
+        .where("user_id", "==", body.user_id || body.user.id)
+        .where("date", ">=", two_months)
+        .get()
+    ).docs
   )
   const mood_summary = getSummary(moods)
 
@@ -543,11 +546,13 @@ const showStats = async (req, res, url) => {
     sortBy(prop("date")),
     map(doc => doc.data())
   )(
-    (await db
-      .collection("challenges")
-      .where("user_id", "==", body.user_id || body.user.id)
-      .where("date", ">=", two_months)
-      .get()).docs
+    (
+      await db
+        .collection("challenges")
+        .where("user_id", "==", body.user_id || body.user.id)
+        .where("date", ">=", two_months)
+        .get()
+    ).docs
   )
 
   const challenge_summary = getSummary(challenges)
@@ -594,270 +599,180 @@ const showStats = async (req, res, url) => {
     message(`${mess.join("\n")}\n${summaries.join("\n")}`, url || res)
   }
 }
-exports.start_mood_tracker = functions.https.onRequest(async (req, res) => {
-  try {
-    verifyMethod(req, "POST")
-    verifyWebhook(req)
 
-    startTracking(req, res)
+const record_mood = async (req, res) => {
+  const user = await getUser(req.body.user_id)
 
-    return Promise.resolve()
-  } catch (err) {
-    console.error(err)
-    res.status(err.code || 500).send(err)
-    return Promise.reject(err)
+  if (user === null || user.track === false) {
+    res.send(`You have not started the motivation tracker yet.`)
+  } else {
+    const date = parseDate(req.body.text)
+    await askMood(res, date === false ? null : req.body.text)
   }
-})
+}
 
-exports.end_mood_tracker = functions.https.onRequest(async (req, res) => {
-  try {
-    verifyMethod(req, "POST")
-    verifyWebhook(req)
+const record_challenge = async (req, res) => {
+  const user = await getUser(req.body.user_id)
 
-    endTracking(req, res)
-    return Promise.resolve()
-  } catch (err) {
-    console.error(err)
-    res.status(err.code || 500).send(err)
-    return Promise.reject(err)
+  if (user === null || user.track === false) {
+    res.send(`You have not started the motivation tracker yet.`)
+  } else {
+    const date = parseDate(req.body.text)
+    await askChallenge(res, date === false ? null : req.body.text)
   }
-})
+}
 
-exports.slack_mirror = functions.https.onRequest(async (req, res) => {
-  try {
-    verifyMethod(req, "POST")
-    verifyWebhook(req)
-    let elms = []
-    const user = await getUser(req.body.user_id)
-    if (user === null || user.track === false) {
+const slack_mirror = async (req, res) => {
+  let elms = []
+  const user = await getUser(req.body.user_id)
+  if (user === null || user.track === false) {
+    elms.push({
+      type: "button",
+      text: {
+        type: "plain_text",
+        emoji: true,
+        text: "Start Tracking",
+      },
+      value: "a",
+    })
+  }
+  if (!isNil(user) && user.track === true) {
+    elms.push({
+      type: "button",
+      text: {
+        type: "plain_text",
+        emoji: true,
+        text: "Show My Stats",
+      },
+      value: "b",
+    })
+    const {
+      ref,
+      settings,
+      user_id,
+      user_name,
+      supervisor,
+      supervisors,
+    } = await initSupervisor(req)
+    if (
+      isNil(settings) ||
+      isNil(settings.supervisors) ||
+      settings.supervisors.length === 0
+    ) {
       elms.push({
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Start Tracking"
+          text: "Add Supervisor",
         },
-        value: "a"
+        value: "d",
       })
-    }
-    if (!isNil(user) && user.track === true) {
+    } else if (includes(user_id)(settings.supervisors)) {
       elms.push({
         type: "button",
         text: {
           type: "plain_text",
           emoji: true,
-          text: "Show My Stats"
+          text: "Show Team Stats",
         },
-        value: "b"
-      })
-      const {
-        ref,
-        settings,
-        user_id,
-        user_name,
-        supervisor,
-        supervisors
-      } = await initSupervisor(req)
-      if (
-        isNil(settings) ||
-        isNil(settings.supervisors) ||
-        settings.supervisors.length === 0
-      ) {
-        elms.push({
-          type: "button",
-          text: {
-            type: "plain_text",
-            emoji: true,
-            text: "Add Supervisor"
-          },
-          value: "d"
-        })
-      } else if (includes(user_id)(settings.supervisors)) {
-        elms.push({
-          type: "button",
-          text: {
-            type: "plain_text",
-            emoji: true,
-            text: "Show Team Stats"
-          },
-          value: "c"
-        })
-      }
-      elms.push({
-        type: "button",
-        text: {
-          type: "plain_text",
-          emoji: true,
-          text: "Stop Tracking"
-        },
-        value: "f"
+        value: "c",
       })
     }
-    const json = {
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "plain_text",
-            text: "Welcome to Slack Mirror! What would you like to do?",
-            emoji: true
-          }
-        },
-        {
-          type: "actions",
-          block_id: "slack_mirror",
-          elements: elms
-        }
-      ]
-    }
-    res.json(json)
-    return Promise.resolve()
-  } catch (err) {
-    console.error(err)
-    res.status(err.code || 500).send(err)
-    return Promise.reject(err)
+    elms.push({
+      type: "button",
+      text: {
+        type: "plain_text",
+        emoji: true,
+        text: "Stop Tracking",
+      },
+      value: "f",
+    })
   }
-})
+  const json = {
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "plain_text",
+          text: "Welcome to Slack Mirror! What would you like to do?",
+          emoji: true,
+        },
+      },
+      {
+        type: "actions",
+        block_id: "slack_mirror",
+        elements: elms,
+      },
+    ],
+  }
+  res.json(json)
+}
 
-exports.record_mood = functions.https.onRequest(async (req, res) => {
-  try {
-    verifyMethod(req, "POST")
-    verifyWebhook(req)
-    const user = await getUser(req.body.user_id)
-
-    if (user === null || user.track === false) {
-      res.send(`You have not started the motivation tracker yet.`)
+const interact = async (req, res) => {
+  const payload = JSON.parse(req.body.payload)
+  const action = payload.actions[0]
+  const value = action.value
+  const user_id = payload.user.id
+  const text = action.text.text
+  const action_type = action.block_id.split("-")[0]
+  const _date = parseDate(action.block_id.split("-")[1])
+  const date = _date !== false ? _date : Math.round(action.action_ts * 1000)
+  if (action_type === "challenge") {
+    await db.collection("challenges").add({
+      date,
+      user_id,
+      value,
+      text,
+    })
+    await db.collection("users").doc(user_id).update({
+      last_challenge: date,
+    })
+    await thanks(payload.response_url, value)
+  } else if (action_type === "mood") {
+    await db.collection("users").doc(user_id).update({
+      last_mood: date,
+    })
+    await db.collection("moods").add({
+      date,
+      user_id,
+      value: +value,
+    })
+    const user = await getUser(user_id)
+    if (user.last_challenge < Date.now() - 1000 * 60 * 60 * 5) {
+      await askChallenge(payload.response_url)
     } else {
-      const date = parseDate(req.body.text)
-      await askMood(res, date === false ? null : req.body.text)
+      await thanks(payload.response_url)
     }
-    return Promise.resolve()
-  } catch (err) {
-    console.error(err)
-    res.status(err.code || 500).send(err)
-    return Promise.reject(err)
-  }
-})
-
-exports.record_challenge = functions.https.onRequest(async (req, res) => {
-  try {
-    verifyMethod(req, "POST")
-    verifyWebhook(req)
-    const user = await getUser(req.body.user_id)
-
-    if (user === null || user.track === false) {
-      res.send(`You have not started the motivation tracker yet.`)
-    } else {
-      const date = parseDate(req.body.text)
-      await askChallenge(res, date === false ? null : req.body.text)
+  } else if (action_type === "slack_mirror") {
+    switch (value) {
+      case "a":
+        startTracking(req, res, payload.response_url)
+        break
+      case "f":
+        endTracking(req, res, payload.response_url)
+        break
+      case "b":
+        showStats(req, res, payload.response_url)
+        break
+      case "c":
+        showTeamStats(req, res, payload.response_url)
+        break
+      case "d":
+        addSupervisor(req, res, payload.response_url)
+        break
+      default:
+        message("unknown command", payload.response_url)
     }
-    return Promise.resolve()
-  } catch (err) {
-    console.error(err)
-    res.status(err.code || 500).send(err)
-    return Promise.reject(err)
   }
-})
-
-exports.genie = functions.https.onRequest(async (req, res) => {
-  try {
-    verifyMethod(req, "POST")
-    verifyWebhook(req)
-    const text = req.body.text
-    await db
-      .collection("wishes")
-      .add({ user_id: req.body.user_id, text, date: Date.now() })
-    res.send(
-      `Your Wish: ${text}\nGenie: ...seems to be sleeping at the moment, sorry!`
-    )
-    return Promise.resolve()
-  } catch (err) {
-    console.error(err)
-    res.status(err.code || 500).send(err)
-    return Promise.reject(err)
-  }
-})
-
-exports.interact = functions.https.onRequest(async (req, res) => {
-  try {
-    verifyMethod(req, "POST")
-    verifyWebhook(req)
-
-    const payload = JSON.parse(req.body.payload)
-    const action = payload.actions[0]
-    const value = action.value
-    const user_id = payload.user.id
-    const text = action.text.text
-    const action_type = action.block_id.split("-")[0]
-    const _date = parseDate(action.block_id.split("-")[1])
-    const date = _date !== false ? _date : Math.round(action.action_ts * 1000)
-    if (action_type === "challenge") {
-      await db.collection("challenges").add({
-        date,
-        user_id,
-        value,
-        text
-      })
-      await db
-        .collection("users")
-        .doc(user_id)
-        .update({
-          last_challenge: date
-        })
-      await thanks(payload.response_url, value)
-    } else if (action_type === "mood") {
-      await db
-        .collection("users")
-        .doc(user_id)
-        .update({
-          last_mood: date
-        })
-      await db.collection("moods").add({
-        date,
-        user_id,
-        value: +value
-      })
-      const user = await getUser(user_id)
-      if (user.last_challenge < Date.now() - 1000 * 60 * 60 * 5) {
-        await askChallenge(payload.response_url)
-      } else {
-        await thanks(payload.response_url)
-      }
-    } else if (action_type === "slack_mirror") {
-      switch (value) {
-        case "a":
-          startTracking(req, res, payload.response_url)
-          break
-        case "f":
-          endTracking(req, res, payload.response_url)
-          break
-        case "b":
-          showStats(req, res, payload.response_url)
-          break
-        case "c":
-          showTeamStats(req, res, payload.response_url)
-          break
-        case "d":
-          addSupervisor(req, res, payload.response_url)
-          break
-        default:
-          message("unknown command", payload.response_url)
-      }
-    }
-    return Promise.resolve()
-  } catch (err) {
-    console.error(err)
-    res.status(err.code || 500).send(err)
-    return Promise.reject(err)
-  }
-})
+}
 
 exports.cron = functions.https.onRequest(async (req, res) => {
   const seven_days = getDateAgo(7)
   const three_days = getDateAgo(3)
   const [users_mood, users_challenge] = await Promise.all([
     db.collection("users", ["last_mood", "<", three_days]).get(),
-    db.collection("users", ["last_challenge", "<", seven_days]).get()
+    db.collection("users", ["last_challenge", "<", seven_days]).get(),
   ])
   let prs = []
   users_mood.forEach(doc => prs.push(askMoodDM(doc.data())))
@@ -873,3 +788,17 @@ exports.removeSupervisor = functions.https.onRequest(execute(removeSupervisor))
 exports.show_mood = functions.https.onRequest(execute(showStats))
 
 exports.show_team_mood = functions.https.onRequest(execute(showTeamStats))
+
+exports.record_mood = functions.https.onRequest(execute(record_mood))
+
+exports.record_challenge = functions.https.onRequest(execute(record_challenge))
+
+exports.start_mood_tracker = functions.https.onRequest(execute(startTracking))
+
+exports.end_mood_tracker = functions.https.onRequest(execute(endTracking))
+
+exports.genie = functions.https.onRequest(execute(genie))
+
+exports.interact = functions.https.onRequest(execute(interact))
+
+exports.slack_mirror = functions.https.onRequest(execute(slack_mirror))
