@@ -54,6 +54,19 @@ const verifyMethod = (req, method) => {
   }
 }
 
+const execute = func => async (req, res) => {
+  try {
+    verifyMethod(req, "POST")
+    verifyWebhook(req)
+    func(req, res)
+    return Promise.resolve()
+  } catch (err) {
+    console.error(err)
+    res.status(err.code || 500).send(err)
+    return Promise.reject(err)
+  }
+}
+
 const MOODS = {
   1: ":tired_face:",
   2: ":white_frowning_face:",
@@ -78,9 +91,76 @@ const getSummary = compose(
   groupBy(prop("value"))
 )
 
+const getDateAgo = days => Date.now() - 1000 * 60 * 60 * 24 * days
+
 const getUser = async user_id => {
   const doc = await db.collection("users").doc(user_id).get()
   return doc.exists ? doc.data() : null
+}
+
+const addSupervisor = async (req, res, url) => {
+  const {
+    ref,
+    settings,
+    user_id,
+    user_name,
+    supervisor,
+    supervisors,
+  } = await initSupervisor(req)
+  const body = !isNil(req.body.user_id)
+    ? req.body
+    : JSON.parse(req.body.payload)
+  if (isNil(supervisor)) {
+    message(
+      `${
+        isNil(body.text) ? "This user" : body.text.replace(/^@/, "")
+      } is not using the motivation tracker`,
+      url || res
+    )
+  } else if (
+    isNil(settings) ||
+    isNil(settings.supervisors) ||
+    settings.supervisors.length === 0
+  ) {
+    await ref.set({ supervisors: fv.arrayUnion(user_id) }, { merge: true })
+    message(`You are added as a supervisor`, url || res)
+  } else if (!includes(user_id)(settings.supervisors)) {
+    message(`You don't have permission to add supervisors`, url || res)
+  } else {
+    if (includes(supervisor.user_id)(settings.supervisors)) {
+      message(`${supervisor.user_name} is already a supervisor`, url || res)
+    } else {
+      await ref.update({ supervisors: fv.arrayUnion(supervisor.user_id) })
+      message(`${supervisor.user_name} is added as a supervisor`, url || res)
+    }
+  }
+}
+
+const removeSupervisor = async (req, res, url) => {
+  const {
+    ref,
+    settings,
+    user_id,
+    user_name,
+    supervisor,
+    supervisors,
+  } = await initSupervisor(req)
+  const body = !isNil(req.body.user_id)
+    ? req.body
+    : JSON.parse(req.body.payload)
+  if (!includes(user_id)(supervisors)) {
+    message(`You don't have permission to add supervisors`, url || res)
+  } else {
+    if (!includes(supervisor.user_id)(settings.supervisors)) {
+      message(`${supervisor.user_name} is not a supervisor`, url || res)
+    } else {
+      await ref.update({ supervisors: fv.arrayRemove(supervisor.user_id) })
+      message(
+        `${supervisor.user_name} is removed from the supervisors`,
+        url || res
+      )
+    }
+  }
 }
 
 const askChallenge = async (url, date) => {
@@ -109,12 +189,17 @@ const getUserByName = async name => {
 }
 
 const initSupervisor = async req => {
+  const body = !isNil(req.body.user_id)
+    ? req.body
+    : JSON.parse(req.body.payload)
   const ref = db.collection("settings").doc("default")
   const settings = (await ref.get()).data()
-  const user_id = req.body.user_id
-  const user_name = req.body.user_name
-  const supervisor = !/^\s*$/.test(req.body.text)
-    ? await getUserByName(req.body.text.replace(/^@/, ""))
+  const user_id = body.user_id || body.user.id
+  const user_name = body.user_name || body.user.username
+  const supervisor = isNil(body.text)
+    ? { user_id, user_name }
+    : !/^\s*$/.test(body.text)
+    ? await getUserByName(body.text.replace(/^@/, ""))
     : { user_id, user_name }
   return { ref, settings, user_id, user_name, supervisor }
 }
@@ -313,26 +398,189 @@ const parseDate = date => {
     return false
   }
 }
+const message = async (mess, url) => {
+  if (typeof url === "string") {
+    await axios.post(url, {
+      text: mess,
+    })
+  } else {
+    url.send(mess)
+  }
+}
+const startTracking = async (req, res, url) => {
+  const body = !isNil(req.body.user_id)
+    ? req.body
+    : JSON.parse(req.body.payload)
+  const user = await getUser(body.user_id || body.user.id)
+  if (user !== null && user.track === true) {
+    await message(
+      `You have already started the motivation tracker.`,
+      url || res
+    )
+  } else {
+    await db
+      .collection("users")
+      .doc(body.user_id || body.user.id)
+      .set({
+        last_mode: 0,
+        last_challenge: 0,
+        user_id: body.user_id || body.user.id,
+        user_name: body.user_name || body.user.username,
+        date: Date.now(),
+        track: true,
+      })
+    await askMood(isNil(url) ? res : url, undefined, true)
+  }
+}
 
+const endTracking = async (req, res, url) => {
+  const body = !isNil(req.body.user_id)
+    ? req.body
+    : JSON.parse(req.body.payload)
+  const user = await getUser(body.user_id || body.user.id)
+  if (user === null || user.track === false) {
+    await message(`You are not using the motivation tracker yet.`, url || res)
+  } else {
+    await db
+      .collection("users")
+      .doc(body.user_id || body.user.id)
+      .update({ track: false })
+    await message(`You have stopped motivation tracking.`, url || res)
+  }
+}
+const showTeamStats = async (req, res, url) => {
+  const two_months = getDateAgo(60)
+  const moods = compose(
+    sortBy(prop("date")),
+    map(doc => doc.data())
+  )((await db.collection("moods").where("date", ">=", two_months).get()).docs)
+  const mood_summary = getSummary(moods)
+
+  const challenges = compose(
+    sortBy(prop("date")),
+    map(doc => doc.data())
+  )(
+    (await db.collection("challenges").where("date", ">=", two_months).get())
+      .docs
+  )
+
+  const challenge_summary = getSummary(challenges)
+
+  if (moods.length === 0 && challenges.length === 0) {
+    message("No avaible data for your team", url || res)
+  } else {
+    let mess = ["Here's your team's stats for the last 2 months."]
+    let summaries = []
+    if (moods.length !== 0) {
+      summaries.push("\n*Your team's motivation summary:* ")
+      let _summary = []
+      for (let m of mood_summary) {
+        _summary.push(
+          `${MOODS[m.value]} ${Math.round((m.length / moods.length) * 100)} %`
+        )
+      }
+      summaries.push(_summary.join(" : "))
+    }
+
+    if (challenges.length !== 0) {
+      summaries.push(
+        "\n*The challenge summary and prescriptions for your team:* "
+      )
+      for (let c of challenge_summary) {
+        summaries.push(
+          `${CHALLENGES[c.value]} : ${Math.round(
+            (c.length / challenges.length) * 100
+          )} %`
+        )
+        summaries.push(`https://id-2e.com/${CHALLENGES[c.value]}/`)
+      }
+    }
+    message(`${mess.join("\n")}\n${summaries.join("\n")}`, url || res)
+  }
+}
+
+const showStats = async (req, res, url) => {
+  const body = !isNil(req.body.user_id)
+    ? req.body
+    : JSON.parse(req.body.payload)
+  const two_months = getDateAgo(60)
+  const moods = compose(
+    sortBy(prop("date")),
+    map(doc => doc.data())
+  )(
+    (
+      await db
+        .collection("moods")
+        .where("user_id", "==", body.user_id || body.user.id)
+        .where("date", ">=", two_months)
+        .get()
+    ).docs
+  )
+  const mood_summary = getSummary(moods)
+
+  const challenges = compose(
+    sortBy(prop("date")),
+    map(doc => doc.data())
+  )(
+    (
+      await db
+        .collection("challenges")
+        .where("user_id", "==", body.user_id || body.user.id)
+        .where("date", ">=", two_months)
+        .get()
+    ).docs
+  )
+
+  const challenge_summary = getSummary(challenges)
+
+  if (moods.length === 0 && challenges.length === 0) {
+    message("No avaible data for you", url || res)
+  } else {
+    let mess = ["Here's your stats for the last 2 months."]
+    let summaries = []
+    if (moods.length !== 0) {
+      mess.push("\n*Your last motivation levels:* ")
+      for (const mood of moods) {
+        mess.push(
+          `${moment(mood.date).format("MM/DD (ddd)")} => ${MOODS[mood.value]}`
+        )
+      }
+      summaries.push("\n*Your motivation summary:* ")
+      let _summary = []
+      for (let m of mood_summary) {
+        _summary.push(
+          `${MOODS[m.value]} ${Math.round((m.length / moods.length) * 100)} %`
+        )
+      }
+      summaries.push(_summary.join(" : "))
+    }
+
+    if (challenges.length !== 0) {
+      mess.push("\n*Your last challenges:* ")
+      for (const challenge of challenges) {
+        mess.push(
+          `${moment(challenge.date).format("MM/DD (ddd)")} => ${challenge.text}`
+        )
+      }
+      summaries.push("\n*Your challenge summary and prescriptions:* ")
+      for (let c of challenge_summary) {
+        summaries.push(
+          `${CHALLENGES[c.value]} : ${Math.round(
+            (c.length / challenges.length) * 100
+          )} %`
+        )
+        summaries.push(`https://id-2e.com/${CHALLENGES[c.value]}/`)
+      }
+    }
+    message(`${mess.join("\n")}\n${summaries.join("\n")}`, url || res)
+  }
+}
 exports.start_mood_tracker = functions.https.onRequest(async (req, res) => {
   try {
     verifyMethod(req, "POST")
     verifyWebhook(req)
 
-    const user = await getUser(req.body.user_id)
-    if (user !== null && user.track === true) {
-      res.send(`You have already started the motivation tracker.`)
-    } else {
-      await db.collection("users").doc(req.body.user_id).set({
-        last_mode: 0,
-        last_challenge: 0,
-        user_id: req.body.user_id,
-        user_name: req.body.user_name,
-        date: Date.now(),
-        track: true,
-      })
-      await askMood(res, undefined, true)
-    }
+    startTracking(req, res)
 
     return Promise.resolve()
   } catch (err) {
@@ -347,17 +595,103 @@ exports.end_mood_tracker = functions.https.onRequest(async (req, res) => {
     verifyMethod(req, "POST")
     verifyWebhook(req)
 
+    endTracking(req, res)
+    return Promise.resolve()
+  } catch (err) {
+    console.error(err)
+    res.status(err.code || 500).send(err)
+    return Promise.reject(err)
+  }
+})
+
+exports.slack_mirror = functions.https.onRequest(async (req, res) => {
+  try {
+    verifyMethod(req, "POST")
+    verifyWebhook(req)
+    let elms = []
     const user = await getUser(req.body.user_id)
     if (user === null || user.track === false) {
-      res.send(`You are not using the motivation tracker yet.`)
-    } else {
-      await db
-        .collection("users")
-        .doc(req.body.user_id)
-        .update({ track: false })
-      res.send(`You have stopped motivation tracking.`)
+      elms.push({
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: "Start Tracking",
+        },
+        value: "a",
+      })
     }
-
+    if (!isNil(user) && user.track === true) {
+      elms.push({
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: "Show My Stats",
+        },
+        value: "b",
+      })
+      const {
+        ref,
+        settings,
+        user_id,
+        user_name,
+        supervisor,
+        supervisors,
+      } = await initSupervisor(req)
+      if (
+        isNil(settings) ||
+        isNil(settings.supervisors) ||
+        settings.supervisors.length === 0
+      ) {
+        elms.push({
+          type: "button",
+          text: {
+            type: "plain_text",
+            emoji: true,
+            text: "Add Supervisor",
+          },
+          value: "d",
+        })
+      } else if (includes(user_id)(settings.supervisors)) {
+        elms.push({
+          type: "button",
+          text: {
+            type: "plain_text",
+            emoji: true,
+            text: "Show Team Stats",
+          },
+          value: "c",
+        })
+      }
+      elms.push({
+        type: "button",
+        text: {
+          type: "plain_text",
+          emoji: true,
+          text: "Stop Tracking",
+        },
+        value: "f",
+      })
+    }
+    const json = {
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "plain_text",
+            text: "Welcome to Slack Mirror! What would you like to do?",
+            emoji: true,
+          },
+        },
+        {
+          type: "actions",
+          block_id: "slack_mirror",
+          elements: elms,
+        },
+      ],
+    }
+    res.json(json)
     return Promise.resolve()
   } catch (err) {
     console.error(err)
@@ -464,94 +798,26 @@ exports.interact = functions.https.onRequest(async (req, res) => {
       } else {
         await thanks(payload.response_url)
       }
-    }
-
-    res.send("ok")
-
-    return Promise.resolve()
-  } catch (err) {
-    console.error(err)
-    res.status(err.code || 500).send(err)
-    return Promise.reject(err)
-  }
-})
-
-exports.show_mood = functions.https.onRequest(async (req, res) => {
-  try {
-    verifyMethod(req, "POST")
-    verifyWebhook(req)
-    const two_months = getDateAgo(60)
-    const moods = compose(
-      sortBy(prop("date")),
-      map(doc => doc.data())
-    )(
-      (
-        await db
-          .collection("moods")
-          .where("user_id", "==", req.body.user_id)
-          .where("date", ">=", two_months)
-          .get()
-      ).docs
-    )
-    const mood_summary = getSummary(moods)
-
-    const challenges = compose(
-      sortBy(prop("date")),
-      map(doc => doc.data())
-    )(
-      (
-        await db
-          .collection("challenges")
-          .where("user_id", "==", req.body.user_id)
-          .where("date", ">=", two_months)
-          .get()
-      ).docs
-    )
-
-    const challenge_summary = getSummary(challenges)
-
-    if (moods.length === 0 && challenges.length === 0) {
-      res.send("No avaible data for you")
-    } else {
-      let mess = ["Here's your stats for the last 2 months."]
-      let summaries = []
-      if (moods.length !== 0) {
-        mess.push("\n*Your last motivation levels:* ")
-        for (const mood of moods) {
-          mess.push(
-            `${moment(mood.date).format("MM/DD (ddd)")} => ${MOODS[mood.value]}`
-          )
-        }
-        summaries.push("\n*Your motivation summary:* ")
-        let _summary = []
-        for (let m of mood_summary) {
-          _summary.push(
-            `${MOODS[m.value]} ${Math.round((m.length / moods.length) * 100)} %`
-          )
-        }
-        summaries.push(_summary.join(" : "))
+    } else if (action_type === "slack_mirror") {
+      switch (value) {
+        case "a":
+          startTracking(req, res, payload.response_url)
+          break
+        case "f":
+          endTracking(req, res, payload.response_url)
+          break
+        case "b":
+          showStats(req, res, payload.response_url)
+          break
+        case "c":
+          showTeamStats(req, res, payload.response_url)
+          break
+        case "d":
+          addSupervisor(req, res, payload.response_url)
+          break
+        default:
+          message("unknown command", payload.response_url)
       }
-
-      if (challenges.length !== 0) {
-        mess.push("\n*Your last challenges:* ")
-        for (const challenge of challenges) {
-          mess.push(
-            `${moment(challenge.date).format("MM/DD (ddd)")} => ${
-              challenge.text
-            }`
-          )
-        }
-        summaries.push("\n*Your challenge summary and prescriptions:* ")
-        for (let c of challenge_summary) {
-          summaries.push(
-            `${CHALLENGES[c.value]} : ${Math.round(
-              (c.length / challenges.length) * 100
-            )} %`
-          )
-          summaries.push(`https://id-2e.com/${CHALLENGES[c.value]}/`)
-        }
-      }
-      res.send(`${mess.join("\n")}\n${summaries.join("\n")}`)
     }
     return Promise.resolve()
   } catch (err) {
@@ -560,68 +826,6 @@ exports.show_mood = functions.https.onRequest(async (req, res) => {
     return Promise.reject(err)
   }
 })
-
-exports.show_team_mood = functions.https.onRequest(async (req, res) => {
-  try {
-    verifyMethod(req, "POST")
-    verifyWebhook(req)
-    const two_months = getDateAgo(60)
-    const moods = compose(
-      sortBy(prop("date")),
-      map(doc => doc.data())
-    )((await db.collection("moods").where("date", ">=", two_months).get()).docs)
-    const mood_summary = getSummary(moods)
-
-    const challenges = compose(
-      sortBy(prop("date")),
-      map(doc => doc.data())
-    )(
-      (await db.collection("challenges").where("date", ">=", two_months).get())
-        .docs
-    )
-
-    const challenge_summary = getSummary(challenges)
-
-    if (moods.length === 0 && challenges.length === 0) {
-      res.send("No avaible data for your team")
-    } else {
-      let mess = ["Here's your team's stats for the last 2 months."]
-      let summaries = []
-      if (moods.length !== 0) {
-        summaries.push("\n*Your team's motivation summary:* ")
-        let _summary = []
-        for (let m of mood_summary) {
-          _summary.push(
-            `${MOODS[m.value]} ${Math.round((m.length / moods.length) * 100)} %`
-          )
-        }
-        summaries.push(_summary.join(" : "))
-      }
-
-      if (challenges.length !== 0) {
-        summaries.push(
-          "\n*The challenge summary and prescriptions for your team:* "
-        )
-        for (let c of challenge_summary) {
-          summaries.push(
-            `${CHALLENGES[c.value]} : ${Math.round(
-              (c.length / challenges.length) * 100
-            )} %`
-          )
-          summaries.push(`https://id-2e.com/${CHALLENGES[c.value]}/`)
-        }
-      }
-      res.send(`${mess.join("\n")}\n${summaries.join("\n")}`)
-    }
-    return Promise.resolve()
-  } catch (err) {
-    console.error(err)
-    res.status(err.code || 500).send(err)
-    return Promise.reject(err)
-  }
-})
-
-const getDateAgo = days => Date.now() - 1000 * 60 * 60 * 24 * days
 
 exports.cron = functions.https.onRequest(async (req, res) => {
   const seven_days = getDateAgo(7)
@@ -637,55 +841,10 @@ exports.cron = functions.https.onRequest(async (req, res) => {
   res.send(`ok`)
 })
 
-exports.addSupervisor = functions.https.onRequest(async (req, res) => {
-  const {
-    ref,
-    settings,
-    user_id,
-    user_name,
-    supervisor,
-    supervisors,
-  } = await initSupervisor(ref)
-  if (isNil(supervisor)) {
-    res.send(
-      `${req.body.text.replace(/^@/, "")} is not using the motivation tracker`
-    )
-  } else if (
-    isNil(settings) ||
-    isNil(settings.supervisors) ||
-    settings.supervisors.length === 0
-  ) {
-    await ref.set({ supervisors: fv.arrayUnion(user_id) }, { merge: true })
-    res.send(`You are added as a supervisor`)
-  } else if (!includes(user_id)(settings.supervisors)) {
-    res.send(`You don't have permission to add supervisors`)
-  } else {
-    if (includes(supervisor.user_id)(settings.supervisors)) {
-      res.send(`${supervisor.user_name} is already a supervisor`)
-    } else {
-      await ref.update({ supervisors: fv.arrayUnion(supervisor.user_id) })
-      res.send(`${supervisor.user_name} is added as a supervisor`)
-    }
-  }
-})
+exports.addSupervisor = functions.https.onRequest(execute(addSupervisor))
 
-exports.removeSupervisor = functions.https.onRequest(async (req, res) => {
-  const {
-    ref,
-    settings,
-    user_id,
-    user_name,
-    supervisor,
-    supervisors,
-  } = await initSupervisor(ref)
-  if (!includes(user_id)(supervisors)) {
-    res.send(`You don't have permission to add supervisors`)
-  } else {
-    if (!includes(supervisor.user_id)(settings.supervisors)) {
-      res.send(`${supervisor.user_name} is not a supervisor`)
-    } else {
-      await ref.update({ supervisors: fv.arrayRemove(supervisor.user_id) })
-      res.send(`${supervisor.user_name} is removed from the supervisors`)
-    }
-  }
-})
+exports.removeSupervisor = functions.https.onRequest(execute(removeSupervisor))
+
+exports.show_mood = functions.https.onRequest(execute(showStats))
+
+exports.show_team_mood = functions.https.onRequest(execute(showTeamStats))
