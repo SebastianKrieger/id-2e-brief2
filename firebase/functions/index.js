@@ -10,7 +10,19 @@ const { verifyRequestSignature } = require("@slack/events-api")
 const axios = require("axios")
 const qs = require("qs")
 const moment = require("moment")
-const { isNil, includes } = require("ramda")
+const {
+  isNil,
+  includes,
+  map,
+  mapObjIndexed,
+  compose,
+  sortBy,
+  reverse,
+  groupBy,
+  prop,
+  pick,
+  values,
+} = require("ramda")
 
 /**
  * Verify that the webhook request came from Slack.
@@ -43,8 +55,8 @@ const verifyMethod = (req, method) => {
 }
 
 const moodEmoji = {
-  1: ":white_frowning_face:",
-  2: ":neutral_face:",
+  1: ":tired_face:",
+  2: ":white_frowning_face:",
   3: ":slightly_smiling_face:",
   4: ":smile:",
   5: ":star-struck:",
@@ -79,7 +91,7 @@ const makeMoodBlocks = block_id => [
     type: "header",
     text: {
       type: "plain_text",
-      text: "How is your mood right now?",
+      text: "What is your motivation level right now?",
       emoji: true,
     },
   },
@@ -208,7 +220,7 @@ const askMood = async (url, date, init = false) => {
       type: "section",
       text: {
         type: "plain_text",
-        text: "Yeah! I started mood tracking! Here's the first one:",
+        text: "Yeah! I started motivation tracking! Here's the first one:",
         emoji: true,
       },
     })
@@ -276,7 +288,7 @@ exports.start_mood_tracker = functions.https.onRequest(async (req, res) => {
 
     const user = await getUser(req.body.user_id)
     if (user !== null && user.track === true) {
-      res.send(`You have already started the mood tracker.`)
+      res.send(`You have already started the motivation tracker.`)
     } else {
       await db.collection("users").doc(req.body.user_id).set({
         last_mode: 0,
@@ -304,13 +316,13 @@ exports.end_mood_tracker = functions.https.onRequest(async (req, res) => {
 
     const user = await getUser(req.body.user_id)
     if (user === null || user.track === false) {
-      res.send(`You are not using the mood tracker yet.`)
+      res.send(`You are not using the motivation tracker yet.`)
     } else {
       await db
         .collection("users")
         .doc(req.body.user_id)
         .update({ track: false })
-      res.send(`You have stopped mood tracking.`)
+      res.send(`You have stopped motivation tracking.`)
     }
 
     return Promise.resolve()
@@ -328,7 +340,7 @@ exports.record_mood = functions.https.onRequest(async (req, res) => {
     const user = await getUser(req.body.user_id)
 
     if (user === null || user.track === false) {
-      res.send(`You have not started the mood tracker yet.`)
+      res.send(`You have not started the motivation tracker yet.`)
     } else {
       const date = parseDate(req.body.text)
       await askMood(res, date === false ? null : req.body.text)
@@ -348,7 +360,7 @@ exports.record_challenge = functions.https.onRequest(async (req, res) => {
     const user = await getUser(req.body.user_id)
 
     if (user === null || user.track === false) {
-      res.send(`You have not started the mood tracker yet.`)
+      res.send(`You have not started the motivation tracker yet.`)
     } else {
       const date = parseDate(req.body.text)
       await askChallenge(res, date === false ? null : req.body.text)
@@ -430,33 +442,93 @@ exports.interact = functions.https.onRequest(async (req, res) => {
     return Promise.reject(err)
   }
 })
+const getSummary = compose(
+  reverse,
+  sortBy(prop("length")),
+  values,
+  mapObjIndexed((v, k) => ({ length: v.length, value: k })),
+  groupBy(prop("value"))
+)
 
 exports.show_mood = functions.https.onRequest(async (req, res) => {
   try {
     verifyMethod(req, "POST")
     verifyWebhook(req)
 
-    const user_id = req.body.user_id
+    const moods = compose(
+      sortBy(prop("date")),
+      map(doc => doc.data())
+    )(
+      (
+        await db
+          .collection("moods")
+          .where("user_id", "==", req.body.user_id)
+          .get()
+      ).docs
+    )
+    const mood_summary = getSummary(moods)
 
-    const userData = await db
-      .collection("moods")
-      .where("user_id", "==", user_id)
-      .get()
+    const challenges = compose(
+      sortBy(prop("date")),
+      map(doc => doc.data())
+    )(
+      (
+        await db
+          .collection("challenges")
+          .where("user_id", "==", req.body.user_id)
+          .get()
+      ).docs
+    )
 
-    if (userData.docs.length < 1) {
-      throw new Error("no avaible moods for user")
+    const challenge_summary = getSummary(challenges)
+
+    if (moods.length === 0 && challenges.length === 0) {
+      res.send("No avaible data for you")
+    } else {
+      let mess = ["Here's your stats for the last 2 months."]
+      let summaries = []
+      if (moods.length !== 0) {
+        mess.push("\n*Your last motivation levels:* ")
+        for (const mood of moods) {
+          mess.push(
+            `${moment(mood.date).format("MM/DD (ddd)")} => ${
+              moodEmoji[mood.value]
+            }`
+          )
+        }
+        summaries.push("\n*Your motivation summary:* ")
+        let _summary = []
+        for (let m of mood_summary) {
+          _summary.push(
+            `${moodEmoji[m.value]} ${Math.round(
+              (m.length / moods.length) * 100
+            )} %`
+          )
+        }
+        summaries.push(_summary.join(" : "))
+      }
+
+      if (challenges.length !== 0) {
+        mess.push("\n*Your last challenges:* ")
+        for (const challenge of challenges) {
+          mess.push(
+            `${moment(challenge.date).format("MM/DD (ddd)")} => ${
+              challenge.text
+            }`
+          )
+        }
+        summaries.push("\n*Your challenge summary and prescriptions:* ")
+        for (let c of challenge_summary) {
+          summaries.push(
+            `${solutions[c.value]} : ${Math.round(
+              (c.length / challenges.length) * 100
+            )} %`
+          )
+          summaries.push(`https://id-2e.com/${solutions[c.value]}/`)
+        }
+      }
+      res.send(`${mess.join("\n")}\n${summaries.join("\n")}`)
     }
-
-    let resMessage = "Your last moods: \n"
-
-    for (const mood of userData.docs) {
-      resMessage += `${new Date(mood.data().date).toLocaleDateString()} => ${
-        moodEmoji[mood.data().value]
-      } \n`
-    }
-
-    res.send(resMessage)
-
     return Promise.resolve()
   } catch (err) {
     console.error(err)
@@ -512,7 +584,9 @@ exports.addSupervisor = functions.https.onRequest(async (req, res) => {
     supervisors,
   } = await initSupervisor(ref)
   if (isNil(supervisor)) {
-    res.send(`${req.body.text.replace(/^@/, "")} is not using the mood-tracker`)
+    res.send(
+      `${req.body.text.replace(/^@/, "")} is not using the motivation tracker`
+    )
   } else if (
     isNil(settings) ||
     isNil(settings.supervisors) ||
