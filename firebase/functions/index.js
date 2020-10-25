@@ -11,6 +11,7 @@ const axios = require("axios")
 const qs = require("qs")
 const moment = require("moment")
 const {
+  take,
   uniq,
   pluck,
   indexBy,
@@ -96,6 +97,11 @@ const getSummary = compose(
     users: compose(uniq, pluck("user_id"))(v),
   })),
   groupBy(prop("value"))
+)
+
+const getTopChallenges = compose(
+  mapObjIndexed(v => ({ length: v.length, challenges: getSummary(v) })),
+  groupBy(prop("user_id"))
 )
 
 const genie = async (req, res) => {
@@ -490,6 +496,8 @@ const showTeamStats = async (req, res, url) => {
 
   const challenge_summary = getSummary(challenges)
 
+  const top_challenges = getTopChallenges(challenges)
+
   if (moods.length === 0 && challenges.length === 0) {
     message("No avaible data for your team", url || res)
   } else {
@@ -517,6 +525,22 @@ const showTeamStats = async (req, res, url) => {
           )} % (${map(v => users[v].user_name)(c.users).join(", ")})`
         )
         summaries.push(`https://id-2e.com/${CHALLENGES[c.value]}/`)
+      }
+      summaries.push("\n*Top challenges by person:* ")
+      for (let k in top_challenges) {
+        const tc = top_challenges[k]
+        const individual_challenges = compose(
+          map(
+            v =>
+              `${CHALLENGES[v.value]} (${Math.round(
+                (v.length / tc.length) * 100
+              )} %)`
+          ),
+          take(3)
+        )(tc.challenges)
+        summaries.push(
+          `*${users[k].user_name}* : ${individual_challenges.join(", ")}`
+        )
       }
     }
     message(`${mess.join("\n")}\n${summaries.join("\n")}`, url || res)
