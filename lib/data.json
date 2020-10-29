@@ -1,0 +1,134 @@
+{
+  "Header": {
+
+    "title": "Motivation Tracking for Productivity",
+    "paragraph": "Slack Mirror tracks motivation levels and challenges of your team memebers to boost your team productivity in remote collaboration."
+
+  },
+  "About": {
+    "paragraph": "Through our 6-week intensive research, we found out motivation loss causes a great deal of productivity loss in remote collaboration. However, managers are clueless about the motivation levels of individual members, and workers themselves are often not aware of their motivation loss and how to solve it. We concluded that motivation tracking is the first step to tackle this wicked problem. We have identified a wide variety of causes for motivation loss in remote work collaboration. We created a knowledge base to map common solutions to the causes of motivation loss. Slack Mirror will also direct your teammates and supervisors to the related pages within the app.",
+    "Why": [
+      {"title":"Collaboration", "key": "collaboration"},
+      {"title":"Loneliness", "key": "loneliness"},
+      {"title":"Collabaration Tools", "key": "collaboration-tools"}
+    ],
+    "Why2": [
+      {"title":"Distractions", "key": "distractions"},
+      {"title":"Unplugging", "key": "unplugging"},
+      {"title":"Timezones", "key": "timezones"}
+    ]
+  },
+  "Services": [{
+    "icon": "fa fa-eye-slash",
+    "name": "Manager's Unawareness",
+    "text": "Remote team managers are often too busy dealing with organizational problems and clueless about the motivation levels of their team members."
+  },
+               {
+		 "icon": "fa fa-frown-o",
+		 "name": "Remote Worker's Struggles",
+		 "text": "The biggest struggles of remote workers are collaboration/communication. They are often left in the dark and lose motivation in remote settings."
+               },
+               {
+		 "icon": "fa fa-thumbs-o-down",
+		 "name": "Productivity Loss",
+		 "text": "People can become the least productive when they lose motivation for work, which also leads to a great deal of productivity loss for remote teams."
+               },
+               {
+		 "icon": "fa fa-fire",
+		 "name": "Wide Range of Causes",
+		 "text": "There are so many organizational and enviromental causes for motivation loss in remote collaboration that there is no simple solution."
+               },
+               {
+		 "icon": "fa fa-cogs",
+		 "name": "No Mental Management Tools",
+		 "text": "There is no widely used mental management tools which can be integrated into frequently used remote collaboration tools at the moment."
+               },
+               {
+		 "icon": "fa fa-slack",
+		 "name": "Slack for Remote Communication",
+		 "text": "Slack is the No.1 remote communication tool used by millions of teams all around the globe, which makes it an ideal place to track motivation."
+               }
+
+
+	      ],
+  "Testimonials": [{
+    "img": "img/testimonials/avataaars.png",
+    "text": "\"After switching to a remote work environment, I have noticed productivity loss of my team but not sure about the actual causes.\"",
+    "name": "Startup Founder"
+  },
+		   {
+		     "img": "img/testimonials/avataaars (4).png",
+		     "text": "\"It is not easy to monitor and evaluate my team member's work in remote settings.  How much they work at home is unknown.\"",
+		     "name": "Chief Manager in Remote Team"
+		   },
+		   {
+		     
+		     "img": "img/testimonials/avataaars (2).png",
+		     "text": "\"Choosing the right collaboration tools anyone can easily use is so hard that team productivity decreases due to the wrong tools.\"",
+		     "name": "Remote Team Manager"
+		   },
+		   {
+		     "img": "img/testimonials/avataaars (3).png",
+		     "text": "\"When working alone at home, I get distracted a lot by social media and my family. I don't usually know when to stop working.\"",
+		     "name": "Remote Worker A"
+		   },
+		   {
+		     "img": "img/testimonials/avataaars (1).png",
+		     "text": "\"I'm not sure if I am contributing to the team in the right way. I don't feel like working at all when I feel I'm worthless and lose motivation.\"",
+		     "name": "Remote Worker B"
+		   },
+		   {
+		     "img": "img/testimonials/avataaars (5).png",
+		     "text": "\"I often get stuck while coding, and it is not easy to know when to ask for help from my collegues, which is slowing down my work progress.\"",
+		     "name": "Remote Software Engineer"
+		   }
+		  ],
+  "Team": [{
+    "img": "img/team/01.png",
+    "name": "ID-2E Research Team",
+    "job": "CODE University"
+  },
+           {
+             "img": "img/team/02.png",
+             "name": "Product Managers",
+             "job": "PM Team"
+           },
+           {
+             "img": "img/team/03.png",
+             "name": "Software Engineers",
+             "job": "SE Team"
+           },
+           {
+             "img": "img/team/04.png",
+             "name": "Interaction Designers",
+             "job": "ID Team"
+           }
+	  ],
+  "Contact": {
+    "address": "https://code.berlin",
+    "phone": "https://id-2e.com",
+    "email": "https://github.com/SebastianKrieger/id-2e-brief2",
+    "github": "https://github.com/SebastianKrieger/id-2e-brief2"
+  },
+  "Features": [{
+    "icon": "fa fa-slack",
+    "title": "Open Source Slack Bot",
+    "text": "Slack Mirror is an open source slack bot. Anyone can use it for free and it's easy to install."
+  },
+               {
+		 "icon": "fa fa-smile-o",
+		 "title": "Motivation / Challenges",
+		 "text": "Slack Mirror periodically asks you about your motivation level and the challenges you are facing."
+               },
+               {
+		 "icon": "fa fa-user-md",
+		 "title": "Prescriptions",
+		 "text": "Slack Mirror can prescribe you common solutions to your problem by linking you to our knowledge base."
+               },
+               {
+		 "icon": "fa fa-line-chart",
+		 "title": "Analytics for Supervisors",
+		 "text": "Supervisors can view the data analysis of their team members, so they can conduct necessary measures."
+               }
+	      ]
+}
