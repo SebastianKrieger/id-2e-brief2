@@ -1,7 +1,6 @@
-# Slack Bot for id-2e-brief2
+# Slack Mirror
 
-## Idea
-![idea](assets/idea.png)
+![Slack Mirror](assets/cover.png)
 
 ---
 
@@ -55,8 +54,18 @@ yarn
 
 Set `Slack Signing Secret` from your test Slack app to a Function env variable.
 
+You can get it from `Basic Information` tab of your app setting page.
+
 ```bash
 firebase functions:config:set slack.secret="xxxxxxxxxxxxxxxxx"
+```
+
+Set `Bot User OAuth Access Token` from your test Slack app to a Function env variable.
+
+You can get it from `OAuth & Permission` tab of your app setting page.
+
+```bash
+firebase functions:config:set slack.bot_token="xxxxxxxxxxxxxxxxx"
 ```
 
 Deploy Functions.
@@ -64,6 +73,13 @@ Deploy Functions.
 ```bash
 firebase deploy --only functions
 ```
+
+Enforce Firestore [rules](firebase/firestore.rules) & [indexes](firebase/firestore.indexes.json).
+
+```bash
+firebase deploy --only firstore
+```
+
 Create slash commands in your Slack app with at least the following settings.
 
 - `Command` : the command below
@@ -73,44 +89,40 @@ The rest is whatever.
 
 Enable interactivity on your slack app with `/interact` function endpoint.
 
+You can do it on `Interactivity & Shortcuts` tab of your app setting page.
+
 Finally reinstall the Slack app to your Slack space.
 
 ---
 
 ## Slack Commands
 
-### /genie
-You can wish whatever you want to [Genie of the Lamp](https://en.wikipedia.org/wiki/Genie_\(Disney\)). He will make your wish come true...maybe :)
-
-```bash
-/genie [*your wish here*]
-```
+![Slack](assets/slack.png)
 
 ---
 
-### /start-mood-tracker
-Start mood tracking.
+### /slack-mirror
+This is the main command which will show a menu of what the user can do.
 
 ```bash
-/start-mood-tracker
+/slack-mirror
 ```
 ---
 
-### /end-mood-tracker
-Stop mood tracking.
+### /add-supervisor
+Add a supervisor. Supvervisors can view the team stats.
 
 ```bash
-/end-mood-tracker
+/add-supervisor @user_name
 ```
 ---
 
-### /show-mood
-(**NOT implemented yet**) Show your stats.
+### /remove-supervisor
+Remove a supervisor.
 
 ```bash
-/show-mood
+/remove-supervisor @user_name
 ```
-
 ---
 
 ### /record-mood [*DD.MM.YYYY]
@@ -131,11 +143,43 @@ Record your challenge at arbitrary time. The date is optional. If not specified,
 (*note*) This command is needed for test purposes so we can record challenges with any date.
 
 ```bash
-/record-mood 01.01.2020
+/record-challenge 01.01.2020
 ```
 ![idea2](assets/challenge.png)
 
 ---
+
+## Dashboard
+
+You can run a local instance of the dashboard app on your computer to view your team stats.
+
+![Dashboard Motivation](assets/dashboard-motivation.png)
+
+![Dashboard Challenges](assets/dashboard-challenges.png)
+
+The app is developed with [Next.js](https://nextjs.org/) / [Next Dapp](https://warashibe.github.io/next-dapp/) frameworks.
+
+To use the dashbard feature, move the file `nd/conf.sample.js` to `nd/conf.js` and replace the `fb` field with yoru firebase settings. This is a feature from `Next Dapp`  described [here](https://warashibe.github.io/next-dapp/docs/plugin-fb).
+
+```js
+...
+  fb: {
+    name: "xxx",
+    id: "xxxxxx",
+    key: "xxxxxxxxxx",
+    sender: "12345678",
+    region: "us-central1"
+  }
+...
+```
+
+Then just run the following command in the app root folder. This will start the `Next.js` app.
+
+```bash
+yarn dev
+```
+
+Now you can access your local app at [https://localhost:3000](https://localhost:3000).
 
 ## Data Structures
 
@@ -175,21 +219,11 @@ Data are stored in Firestore with the collections below.
 }
 ```
 
-### wishes
-
-```json
-{
-  date: 1602997350453,
-  user_id: "XXXXXXX",
-  text: "your wish here"
-}
-```
-
 ---
-## How to Contribute
+## How to Contribute to development
 
-1. clone this repo
-2. make your own branch
+1. fork this repo
+2. clone your forked repo
 3. make changes
 4. lint
 5. commit
@@ -213,7 +247,7 @@ FYI, the prettier settings are defined in `package.json` as below.
 
 ---
 
-## How to Add a Command to Slack
+## How to Add a new function for a Slack slash command
 
 All you have to do is to define a `cloud function` in the file located at [firebase/functions/index.js](firebase/functions/index.js) and set up a `slash command` accordingly in your Slack app.
 
@@ -255,3 +289,9 @@ res.send(
 And the rest is just formality.
 
 That's it!
+
+## LICENSE
+
+Slack Mirror is published under [MIT](LICENSE) license.
+
+Copyright (c) 2020 ID-2E Research team at [CODE University of Applied Sciences](https://code.berlin) in Berlin, Germany

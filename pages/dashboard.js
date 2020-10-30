@@ -222,7 +222,7 @@ export default bind(
             }
           }),
           groupBy(prop("user_id"))
-        )($.moods)
+        )($.moods || [])
 
     const challenges = isNil($.challenges)
       ? []
@@ -243,17 +243,17 @@ export default bind(
             return obj
           }),
           groupBy(prop("value"))
-        )($.challenges)
+        )($.challenges || [])
     const challenge_users = compose(
       map(v => user_map[v].user_name),
       uniq,
       pluck("user_id")
-    )($.challenges)
+    )($.challenges || [])
 
     return (
       <Fragment>
         <Navigation />
-        {isNil($.users) || $.moods.length === 0 || $.challenges.length === 0 ? (
+        {isNil($.users) || isNil($.moods) || isNil($.challenges) ? (
           <Flex
             pt="80px"
             width={1}
