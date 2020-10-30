@@ -1,5 +1,5 @@
 export default {
   users: null,
-  moods: [],
-  challenges: [],
+  moods: null,
+  challenges: null,
 }
