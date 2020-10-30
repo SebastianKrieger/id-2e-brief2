@@ -64,5 +64,61 @@
         "origin": "IMPORTED",
         "originallySharedDir": "nd/core"
     },
+    "warashibe.nextdapp/fb@0.0.7": {
+        "files": [
+            {
+                "name": "fb.js",
+                "relativePath": "fb.js",
+                "test": false
+            },
+            {
+                "name": "index.js",
+                "relativePath": "index.js",
+                "test": false
+            },
+            {
+                "name": "init.js",
+                "relativePath": "init.js",
+                "test": false
+            },
+            {
+                "name": "nextdapp.json",
+                "relativePath": "nextdapp.json",
+                "test": false
+            }
+        ],
+        "mainFile": "index.js",
+        "rootDir": "nd/fb",
+        "origin": "IMPORTED",
+        "originallySharedDir": "nd/fb"
+    },
+    "warashibe.nextdapp/util@0.0.3": {
+        "files": [
+            {
+                "name": "index.js",
+                "relativePath": "index.js",
+                "test": false
+            },
+            {
+                "name": "init.js",
+                "relativePath": "init.js",
+                "test": false
+            },
+            {
+                "name": "nextdapp.json",
+                "relativePath": "nextdapp.json",
+                "test": false
+            },
+            {
+                "name": "util.js",
+                "relativePath": "util.js",
+                "test": false
+            }
+        ],
+        "mainFile": "index.js",
+        "rootDir": "nd/util",
+        "origin": "IMPORTED",
+        "originallySharedDir": "nd/util"
+    },
     "version": "14.8.2"
 }

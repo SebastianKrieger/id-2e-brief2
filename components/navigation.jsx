@@ -17,7 +17,7 @@ export class Navigation extends Component {
               <span className="icon-bar" /> <span className="icon-bar" />{" "}
               <span className="icon-bar" />{" "}
             </button>
-            <a href="/">
+            <a className="page-scroll" href="#page-top">
               <img
                 style={{
                   float: "left",

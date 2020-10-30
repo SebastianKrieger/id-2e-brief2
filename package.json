@@ -5,13 +5,20 @@
   "license": "MIT",
   "dependencies": {
     "@bit/warashibe.nextdapp.core": "file:./nd/core",
+    "@bit/warashibe.nextdapp.fb": "file:./nd/fb",
+    "@bit/warashibe.nextdapp.util": "file:./nd/util",
+    "@nivo/axes": "^0.63.0",
+    "@nivo/bar": "^0.63.1",
+    "@nivo/line": "^0.63.1",
     "isomorphic-fetch": "^2.2.1",
+    "moment": "^2.29.1",
     "next": "^9.4.4",
     "next-offline": "^5.0.2",
     "normalize.css": "^8.0.1",
-    "ramda": "^0.27.0",
+    "ramda": "^0.27.1",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
+    "rebass": "^4.0.7",
     "recoil": "^0.0.10"
   },
   "scripts": {
