@@ -1,12 +1,9 @@
 const functions = require("firebase-functions")
 const admin = require("firebase-admin")
 admin.initializeApp()
-
 const db = admin.firestore()
 const fv = admin.firestore.FieldValue
-
 const { verifyRequestSignature } = require("@slack/events-api")
-
 const axios = require("axios")
 const qs = require("qs")
 const moment = require("moment")
@@ -27,7 +24,6 @@ const {
   pick,
   values,
 } = require("ramda")
-
 /**
  * Verify that the webhook request came from Slack.
  *
@@ -42,14 +38,12 @@ const verifyWebhook = req => {
     requestTimestamp: req.headers["x-slack-request-timestamp"],
     body: req.rawBody,
   }
-
   if (!verifyRequestSignature(signature)) {
     const error = new Error("Invalid credentials")
     error.code = 401
     throw error
   }
 }
-
 const verifyMethod = (req, method) => {
   if (req.method !== method) {
     const error = new Error("Only POST requests are accepted")
@@ -57,7 +51,6 @@ const verifyMethod = (req, method) => {
     throw error
   }
 }
-
 const execute = func => async (req, res) => {
   try {
     verifyMethod(req, "POST")
@@ -70,7 +63,6 @@ const execute = func => async (req, res) => {
     return Promise.reject(err)
   }
 }
-
 const MOODS = {
   1: ":tired_face:",
   2: ":white_frowning_face:",
@@ -78,7 +70,6 @@ const MOODS = {
   4: ":smile:",
   5: ":star-struck:",
 }
-
 const CHALLENGES = {
   a: "collaboration",
   b: "loneliness",
@@ -86,7 +77,6 @@ const CHALLENGES = {
   d: "distractions",
   e: "unplugging",
 }
-
 const getSummary = compose(
   reverse,
   sortBy(prop("length")),
@@ -98,12 +88,10 @@ const getSummary = compose(
   })),
   groupBy(prop("value"))
 )
-
 const getTopChallenges = compose(
   mapObjIndexed(v => ({ length: v.length, challenges: getSummary(v) })),
   groupBy(prop("user_id"))
 )
-
 const genie = async (req, res) => {
   const text = req.body.text
   await db
@@ -113,14 +101,11 @@ const genie = async (req, res) => {
     `Your Wish: ${text}\nGenie: ...seems to be sleeping at the moment, sorry!`
   )
 }
-
 const getDateAgo = days => Date.now() - 1000 * 60 * 60 * 24 * days
-
 const getUser = async user_id => {
   const doc = await db.collection("users").doc(user_id).get()
   return doc.exists ? doc.data() : null
 }
-
 const addSupervisor = async (req, res, url) => {
   const {
     ref,
@@ -158,7 +143,6 @@ const addSupervisor = async (req, res, url) => {
     }
   }
 }
-
 const removeSupervisor = async (req, res, url) => {
   const {
     ref,
@@ -185,7 +169,6 @@ const removeSupervisor = async (req, res, url) => {
     }
   }
 }
-
 const askChallenge = async (url, date) => {
   const block_id = date === undefined ? "challenge" : `challenge-${date}`
   const json = {
@@ -197,7 +180,6 @@ const askChallenge = async (url, date) => {
     url.json(json)
   }
 }
-
 const getUserByName = async name => {
   const docs = await db
     .collection("users")
@@ -210,7 +192,6 @@ const getUserByName = async name => {
   })
   return user
 }
-
 const initSupervisor = async req => {
   const body = !isNil(req.body.user_id)
     ? req.body
@@ -226,7 +207,6 @@ const initSupervisor = async req => {
     : { user_id, user_name }
   return { ref, settings, user_id, user_name, supervisor }
 }
-
 const makeMoodBlocks = block_id => [
   {
     type: "header",
@@ -288,7 +268,6 @@ const makeMoodBlocks = block_id => [
     ],
   },
 ]
-
 const makeChallengeBlocks = block_id => [
   {
     type: "header",
@@ -350,12 +329,10 @@ const makeChallengeBlocks = block_id => [
     ],
   },
 ]
-
 const askMood = async (url, date, init = false) => {
   let json = {
     blocks: makeMoodBlocks(date === undefined ? "mood" : `mood-${date}`),
   }
-
   if (init) {
     json.blocks.unshift({
       type: "section",
@@ -366,14 +343,12 @@ const askMood = async (url, date, init = false) => {
       },
     })
   }
-
   if (typeof url === "string") {
     await axios.post(url, json)
   } else {
     url.json(json)
   }
 }
-
 const thanks = async (url, solution) => {
   let text = [`Thank you, It's been recorded!`]
   if (CHALLENGES[solution] !== undefined) {
@@ -384,7 +359,6 @@ const thanks = async (url, solution) => {
     text: text.join("\n"),
   })
 }
-
 const openChannel = async user_id =>
   (
     await axios.post(
@@ -395,7 +369,6 @@ const openChannel = async user_id =>
       })
     )
   ).data.channel.id
-
 const ask = async (channel, blocks) =>
   await axios.post(
     "https://slack.com/api/chat.postMessage",
@@ -406,13 +379,10 @@ const ask = async (channel, blocks) =>
       },
     }
   )
-
 const askMoodDM = async user =>
   await ask(await openChannel(user.user_id), makeMoodBlocks("mood"))
-
 const askChallengeDM = async user =>
   await ask(await openChannel(user.user_id), makeChallengeBlocks("challenge"))
-
 const parseDate = date => {
   const parsed = moment(date, "DD.MM.YYYY")
   if (parsed.isValid()) {
@@ -421,7 +391,6 @@ const parseDate = date => {
     return false
   }
 }
-
 const message = async (mess, url) => {
   if (typeof url === "string") {
     await axios.post(url, {
@@ -431,7 +400,6 @@ const message = async (mess, url) => {
     url.send(mess)
   }
 }
-
 const startTracking = async (req, res, url) => {
   const body = !isNil(req.body.user_id)
     ? req.body
@@ -457,7 +425,6 @@ const startTracking = async (req, res, url) => {
     await askMood(isNil(url) ? res : url, undefined, true)
   }
 }
-
 const endTracking = async (req, res, url) => {
   const body = !isNil(req.body.user_id)
     ? req.body
@@ -473,7 +440,6 @@ const endTracking = async (req, res, url) => {
     await message(`You have stopped motivation tracking.`, url || res)
   }
 }
-
 const showTeamStats = async (req, res, url) => {
   const users = compose(
     indexBy(prop("user_id")),
@@ -485,7 +451,6 @@ const showTeamStats = async (req, res, url) => {
     map(doc => doc.data())
   )((await db.collection("moods").where("date", ">=", two_months).get()).docs)
   const mood_summary = getSummary(moods)
-
   const challenges = compose(
     sortBy(prop("date")),
     map(doc => doc.data())
@@ -493,11 +458,8 @@ const showTeamStats = async (req, res, url) => {
     (await db.collection("challenges").where("date", ">=", two_months).get())
       .docs
   )
-
   const challenge_summary = getSummary(challenges)
-
   const top_challenges = getTopChallenges(challenges)
-
   if (moods.length === 0 && challenges.length === 0) {
     message("No avaible data for your team", url || res)
   } else {
@@ -513,7 +475,6 @@ const showTeamStats = async (req, res, url) => {
       }
       summaries.push(_summary.join(" : "))
     }
-
     if (challenges.length !== 0) {
       summaries.push(
         "\n*The challenge summary and prescriptions for your team:* "
@@ -546,7 +507,6 @@ const showTeamStats = async (req, res, url) => {
     message(`${mess.join("\n")}\n${summaries.join("\n")}`, url || res)
   }
 }
-
 const showStats = async (req, res, url) => {
   const body = !isNil(req.body.user_id)
     ? req.body
@@ -565,7 +525,6 @@ const showStats = async (req, res, url) => {
     ).docs
   )
   const mood_summary = getSummary(moods)
-
   const challenges = compose(
     sortBy(prop("date")),
     map(doc => doc.data())
@@ -578,9 +537,7 @@ const showStats = async (req, res, url) => {
         .get()
     ).docs
   )
-
   const challenge_summary = getSummary(challenges)
-
   if (moods.length === 0 && challenges.length === 0) {
     message("No avaible data for you", url || res)
   } else {
@@ -602,7 +559,6 @@ const showStats = async (req, res, url) => {
       }
       summaries.push(_summary.join(" : "))
     }
-
     if (challenges.length !== 0) {
       mess.push("\n*Your last challenges:* ")
       for (const challenge of challenges) {
@@ -623,10 +579,8 @@ const showStats = async (req, res, url) => {
     message(`${mess.join("\n")}\n${summaries.join("\n")}`, url || res)
   }
 }
-
 const record_mood = async (req, res) => {
   const user = await getUser(req.body.user_id)
-
   if (user === null || user.track === false) {
     res.send(`You have not started the motivation tracker yet.`)
   } else {
@@ -634,10 +588,8 @@ const record_mood = async (req, res) => {
     await askMood(res, date === false ? null : req.body.text)
   }
 }
-
 const record_challenge = async (req, res) => {
   const user = await getUser(req.body.user_id)
-
   if (user === null || user.track === false) {
     res.send(`You have not started the motivation tracker yet.`)
   } else {
@@ -645,7 +597,6 @@ const record_challenge = async (req, res) => {
     await askChallenge(res, date === false ? null : req.body.text)
   }
 }
-
 const slack_mirror = async (req, res) => {
   let elms = []
   const user = await getUser(req.body.user_id)
@@ -732,7 +683,6 @@ const slack_mirror = async (req, res) => {
   }
   res.json(json)
 }
-
 const interact = async (req, res) => {
   const payload = JSON.parse(req.body.payload)
   const action = payload.actions[0]
@@ -790,7 +740,6 @@ const interact = async (req, res) => {
     }
   }
 }
-
 exports.cron = functions.https.onRequest(async (req, res) => {
   const seven_days = getDateAgo(7)
   const three_days = getDateAgo(3)
@@ -804,25 +753,16 @@ exports.cron = functions.https.onRequest(async (req, res) => {
   if (prs.length !== 0) await Promise.all(prs)
   res.send(`ok`)
 })
-
 exports.addSupervisor = functions.https.onRequest(execute(addSupervisor))
-
 exports.removeSupervisor = functions.https.onRequest(execute(removeSupervisor))
-
 exports.show_mood = functions.https.onRequest(execute(showStats))
-
 exports.show_team_mood = functions.https.onRequest(execute(showTeamStats))
-
 exports.record_mood = functions.https.onRequest(execute(record_mood))
-
 exports.record_challenge = functions.https.onRequest(execute(record_challenge))
-
 exports.start_mood_tracker = functions.https.onRequest(execute(startTracking))
-
 exports.end_mood_tracker = functions.https.onRequest(execute(endTracking))
-
 exports.genie = functions.https.onRequest(execute(genie))
-
 exports.interact = functions.https.onRequest(execute(interact))
-
 exports.slack_mirror = functions.https.onRequest(execute(slack_mirror))
+// nextdapp-start
+// nextdapp-end

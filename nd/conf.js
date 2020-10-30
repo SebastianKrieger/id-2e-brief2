@@ -20,5 +20,12 @@ const prod = {
       "https://raw.githubusercontent.com/SebastianKrieger/id-2e-brief2/main/assets/cover.png",
     "theme-color": "#EFFAD3",
   },
+  fb: {
+    name: "code",
+    id: "code-a1ef6",
+    key: "AIzaSyAo_isIOKxGpUnKyIf8QfP9IzrCwuMGbec",
+    sender: "538500673824",
+    region: "us-central1",
+  },
 }
 module.exports = mergeAll([auto, prod, local])

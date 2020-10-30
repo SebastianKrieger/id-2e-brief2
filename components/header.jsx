@@ -1,10 +1,12 @@
 import React, { Component } from "react"
+import { Flex, Box } from "rebass"
+import Link from "next/link"
 
 export class Header extends Component {
   render() {
     return (
       <header id="header">
-        <div className="intro">
+        <div className="intro" id="page-top">
           <div className="overlay">
             <div className="container">
               <div className="row">
@@ -16,22 +18,35 @@ export class Header extends Component {
                   <p>
                     {this.props.data ? this.props.data.paragraph : "Loading"}
                   </p>
-                  <a
-                    href="https://github.com/SebastianKrieger/id-2e-brief2"
-                    target="_blank"
-                    className="btn btn-custom btn-lg page-scroll"
-                  >
-                    INSTALL SLACK MIR
-                    <span
-                      style={{
-                        transform: "scale(-1, 1)",
-                        display: "inline-block"
-                      }}
+                  <Flex justifyContent="center">
+                    <Box
+                      as="a"
+                      mx={3}
+                      href="https://github.com/SebastianKrieger/id-2e-brief2"
+                      target="_blank"
+                      className="btn btn-custom btn-lg page-scroll"
                     >
-                      R
-                    </span>
-                    OR
-                  </a>{" "}
+                      INSTALL SLACK MIR
+                      <span
+                        style={{
+                          transform: "scale(-1, 1)",
+                          display: "inline-block"
+                        }}
+                      >
+                        R
+                      </span>
+                      OR
+                    </Box>
+                    <Link href="/dashboard">
+                      <Box
+                        as="a"
+                        mx={3}
+                        className="btn btn-custom btn-lg page-scroll"
+                      >
+                        Go to Dashboard
+                      </Box>
+                    </Link>
+                  </Flex>
                 </div>
               </div>
             </div>
