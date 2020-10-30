@@ -1,4 +1,5 @@
 pages/.dev
+nd/conf.js
 firebase/functions/env.json
 firebase/key.json
 firebase/functions/.runtimeconfig.json
